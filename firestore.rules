@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Miembro = móvil que ya metió el PIN correcto
+    function isMember() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/editors/$(request.auth.uid));
+    }
+
+    // Aquí vive el PIN. Nadie puede leerlo ni cambiarlo desde la web.
+    match /config/{doc} {
+      allow read, write: if false;
+    }
+
+    // Registro de móviles autorizados: cada uno solo puede registrarse a sí mismo y solo con el PIN correcto
+    match /editors/{uid} {
+      allow read, delete: if false;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.pin == get(/databases/$(database)/documents/config/pin).data.pin;
+    }
+
+    // Con el PIN dentro, se puede ver y tocar todo
+    match /matches/{id} {
+      allow read, write: if isMember();
+    }
+    match /preds/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.w in ['a', 'b']
+        && request.resource.data.r in ['20', '21'];
+    }
+    match /votes/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.v != request.resource.data.c;
+    }
+  }
+}
