@@ -2,13 +2,13 @@
    CONFIGURACIÓN DE LA LIGA — lo único que hay que tocar
    ===================================================================== */
 window.LIGA_CONFIG = {
-  // Supabase > Project Settings > API. La "anon key" es pública por diseño:
-  // la seguridad la ponen las reglas de supabase/schema.sql.
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  // Pega aquí el bloque firebaseConfig de tu proyecto, SOLO lo que va entre { y }.
+  // (Firebase > engranaje > Configuración del proyecto > Tus apps > Configuración)
+  // No es una contraseña: la seguridad la ponen las reglas de Firestore.
+  FIREBASE: null,
 
-  // PIN solo para el modo prueba (sin Supabase). Con Supabase, el PIN
-  // se guarda en la base de datos y no aparece en el código.
+  // PIN solo para el modo prueba (sin Firebase). Con Firebase, el PIN
+  // está guardado en Firestore (config/pin) y no aparece en el código.
   LOCAL_PIN: "2627",
 
   // Cruces oficiales de la ida (J1–J9), en el mismo orden que la web original.
