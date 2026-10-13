@@ -63,88 +63,57 @@ const SEED = {
    ===================================================================== */
 let VERSION = 0;
 const Store = {
-  matches:{}, preds:{}, votes:{}, sb:null,
+  matches:{}, preds:{}, votes:{}, db:null, online:false,
   bump(){ VERSION++; schedule(); },
   async init(){
-    if(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase){
+    if(CFG.FIREBASE && window.firebase){
       try{
-        this.sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {realtime:{params:{eventsPerSecond:20}}});
-        await this.fetchAll();
-        this.sb.channel("liga")
-          .on("postgres_changes",{event:"*",schema:"public",table:"matches"},x=>{
-            if(x.eventType==="DELETE") delete this.matches[x.old.id]; else this.matches[x.new.id]=x.new.data;
-            this.bump();
-          })
-          .on("postgres_changes",{event:"*",schema:"public",table:"preds"},x=>{
-            if(x.eventType==="DELETE") delete this.preds[x.old.id]; else this.preds[x.new.id]=x.new.data;
-            this.bump();
-          })
-          .on("postgres_changes",{event:"*",schema:"public",table:"votes"},x=>{
-            if(x.eventType==="DELETE") delete this.votes[x.old.id]; else this.votes[x.new.id]=x.new.data;
-            this.bump();
-          })
-          .subscribe(st=>{
-            if(st==="SUBSCRIBED") setSync(true,"En directo para todos");
-            else if(st==="CHANNEL_ERROR"||st==="TIMED_OUT"||st==="CLOSED") setSync(false,"Reconectando…");
-          });
-        // al volver a la app (móvil dormido) se resincroniza todo
-        document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") this.fetchAll(); });
+        firebase.initializeApp(CFG.FIREBASE);
+        await firebase.auth().signInAnonymously();
+        this.db = firebase.firestore();
+        const listen=(col,target)=>this.db.collection(col).onSnapshot(snap=>{
+          snap.docChanges().forEach(c=>{ if(c.type==="removed") delete this[target][c.doc.id]; else this[target][c.doc.id]=c.doc.data(); });
+          if(col==="matches"){ this.online=true; setSync(true,"En directo para todos"); }
+          this.bump();
+        }, err=>{ console.error(err); setSync(false,"Sin permiso para leer: revisa las reglas de Firestore"); });
+        listen("matches","matches"); listen("preds","preds"); listen("votes","votes");
         return;
-      }catch(e){ console.error(e); setSync(false,"Sin conexión: modo prueba"); this.sb=null; }
+      }catch(e){
+        console.error(e);
+        setSync(false, /auth|operation-not-allowed/i.test(String(e.code||e.message)) ? "Activa el acceso Anónimo en Firebase Authentication" : "No se pudo conectar con Firebase");
+        this.db=null;
+      }
     } else setSync(false,"Modo prueba: solo en este navegador");
     this.loadLocal(); this.bump();
     window.addEventListener("storage",()=>{ this.loadLocal(); this.bump(); });
   },
-  async fetchAll(){
-    const [m,p,v] = await Promise.all([this.sb.from("matches").select("id,data"), this.sb.from("preds").select("id,data"), this.sb.from("votes").select("id,data")]);
-    if(m.error) throw m.error; if(p.error) throw p.error;
-    this.votes = v.error ? {} : Object.fromEntries(v.data.map(r=>[r.id,r.data]));
-    this.matches = Object.fromEntries(m.data.map(r=>[r.id,r.data]));
-    this.preds = Object.fromEntries(p.data.map(r=>[r.id,r.data]));
-    this.bump();
-  },
   loadLocal(){
-    try{ this.matches=JSON.parse(localStorage.getItem("am_matches")||"null"); this.preds=JSON.parse(localStorage.getItem("am_preds")||"{}"); this.votes=JSON.parse(localStorage.getItem("am_votes")||"{}"); }
-    catch(e){ this.matches=null; this.preds={}; this.votes={}; }
-    if(!this.matches) this.matches=JSON.parse(JSON.stringify(SEED));
+    try{ this.matches=JSON.parse(localStorage.getItem("am_matches")||"{}"); this.preds=JSON.parse(localStorage.getItem("am_preds")||"{}"); this.votes=JSON.parse(localStorage.getItem("am_votes")||"{}"); }
+    catch(e){ this.matches={}; this.preds={}; this.votes={}; }
   },
   saveLocal(){ try{ localStorage.setItem("am_matches",JSON.stringify(this.matches)); localStorage.setItem("am_preds",JSON.stringify(this.preds)); localStorage.setItem("am_votes",JSON.stringify(this.votes)); }catch(e){} },
-  async setVote(id,data){
-    const prev=this.votes[id];
-    this.votes[id]=data; this.bump();
-    if(!this.sb){ this.saveLocal(); return true; }
-    const {error}=await this.sb.from("votes").upsert({id, data});
-    if(error){ if(prev) this.votes[id]=prev; else delete this.votes[id]; this.bump(); toast("No se pudo guardar el voto"); return false; }
-    return true;
-  },
   /* Guardado optimista: la pantalla cambia al instante y la base de datos va detrás */
-  async setMatch(id,data){
-    data.updated = Date.now();
-    const prev = this.matches[id];
-    this.matches[id] = data; this.bump();
-    if(!this.sb){ this.saveLocal(); return true; }
-    const {error} = await this.sb.rpc("save_match",{p_id:id, p_data:data, p_pin:getPin()});
-    if(error){
-      if(prev) this.matches[id]=prev; else delete this.matches[id];
+  async write(col,target,id,data,errMsg){
+    const prev=this[target][id];
+    this[target][id]=data; this.bump();
+    if(!this.db){ this.saveLocal(); return true; }
+    try{ await this.db.collection(col).doc(id).set(data); return true; }
+    catch(e){
+      if(prev) this[target][id]=prev; else delete this[target][id];
       this.bump();
-      if(/pin/i.test(error.message)){ localStorage.removeItem("am_pin"); toast("PIN incorrecto: vuelve a meterlo"); }
-      else toast("No se pudo guardar. Revisa la conexión.");
+      if(col==="matches" && /permission/i.test(String(e.code||e.message))){ localStorage.removeItem("am_pin"); toast("Sin permiso: vuelve a meter el PIN"); }
+      else toast(errMsg);
       return false;
     }
-    return true;
   },
-  async setPred(id,data){
-    const prev=this.preds[id];
-    this.preds[id]=data; this.bump();
-    if(!this.sb){ this.saveLocal(); return true; }
-    const {error}=await this.sb.from("preds").upsert({id, data});
-    if(error){ if(prev) this.preds[id]=prev; else delete this.preds[id]; this.bump(); toast("No se pudo guardar el pronóstico"); return false; }
-    return true;
-  },
+  setMatch(id,data){ data.updated=Date.now(); return this.write("matches","matches",id,data,"No se pudo guardar. Revisa la conexión."); },
+  setPred(id,data){ return this.write("preds","preds",id,data,"No se pudo guardar el pronóstico"); },
+  setVote(id,data){ return this.write("votes","votes",id,data,"No se pudo guardar el voto"); },
   async checkPin(pin){
-    if(!this.sb) return pin===(CFG.LOCAL_PIN||"");
-    const {data,error}=await this.sb.rpc("check_pin",{p_pin:pin});
-    return !error && data===true;
+    if(!this.db) return pin===(CFG.LOCAL_PIN||"");
+    const uid=firebase.auth().currentUser&&firebase.auth().currentUser.uid; if(!uid) return false;
+    try{ await this.db.collection("editors").doc(uid).set({pin}); return true; }
+    catch(e){ return false; }
   },
 };
 const getPin = ()=>localStorage.getItem("am_pin")||"";
@@ -201,7 +170,7 @@ const memo={};
 function cached(key,fn){ const c=memo[key]; if(c&&c.v===VERSION) return c.val; const val=fn(); memo[key]={v:VERSION,val}; return val; }
 
 function getMatch(id){
-  const doc=Store.matches[id]||{};
+  const doc=Store.matches[id]||SEED[id]||{};
   const fx=FX[id];
   if(fx) return {...doc, id, j:fx.j, a:fx.a, b:fx.b};
   let a=doc.a, b=doc.b;
@@ -335,7 +304,7 @@ function poster(m,{wide=false,still=false}={}){
   const len=Math.max((A?A.first:"?").length,(B?B.first:"?").length);
   const fs=Math.min(27,155/len), fsw=Math.min(15,92/len);
   const pa=(A&&B)?probA(m.a,m.b):.5;
-  return `<article class="poster ${wide?"wide":""} ${intro?"intro":""}" ${still?"":`data-open-match="${m.id}" role="button" tabindex="0"`} aria-label="${esc(fullA)} contra ${esc(fullB)}" style="--fs:${fs}cqw;--fsw:${fsw}cqw">
+  return `<article class="poster ${wide?"wide":""} ${intro?"intro":""}" ${still?"":`data-versus="${m.id}" role="button" tabindex="0"`} aria-label="${esc(fullA)} contra ${esc(fullB)}" style="--fs:${fs}cqw;--fsw:${fsw}cqw">
     <div class="p-beams" aria-hidden="true"></div><div class="p-flare" aria-hidden="true"></div><div class="p-bg" aria-hidden="true"><span>${esc(A?A.first:"?")}</span><span>${esc(B?B.first:"?")}</span></div>
     ${A?`<div class="p-glow l" style="background:${A.color}"></div>`:""}${B?`<div class="p-glow r" style="background:${B.color}"></div>`:""}
     ${A?`<div class="hero l" style="--c:${A.color}"><img src="${IMG(m.a)}" alt="" decoding="async"></div>`:""}
@@ -614,11 +583,114 @@ function vMVP(){
    <h3 style="margin-top:16px">MVPs de jornada ganados</h3>${winList.length?`<div class="panel">${winList.map(([id,n])=>`<div class="tline"><div class="pl">${av(id,"sm")}<span>${P[id].name}</span></div><span class="num" style="font-size:22px;font-weight:900">${n} 🏅</span></div>`).join("")}</div>`:`<div class="empty">Todavía no hay votos.</div>`}</div></div>`;
 }
 
+
+/* =====================================================================
+   PRESENTACIÓN ÉPICA DEL CARA A CARA
+   Si existe img/<id>-walkout.webm (vídeo con fondo transparente), el
+   jugador aparece andando; si no, su foto entra con efecto cine.
+   ===================================================================== */
+const WALKOUTS = (CFG.WALKOUTS||[]);
+let VSX=null;
+function vsMedia(id,side){
+  if(WALKOUTS.includes(id)) return `<video class="vx-img" src="img/${id}-walkout.webm" autoplay muted playsinline preload="auto"></video>`;
+  return `<img class="vx-img" src="${IMG(id)}" alt="" decoding="async">`;
+}
+function openVersus(id){
+  const m=getMatch(id); if(!m.a||!m.b){ openMatch(id); return; }
+  closeModal();
+  const st=standings().byId, A=st[m.a], B=st[m.b], pA=P[m.a], pB=P[m.b], E=elo(), r=result(m), live=m.status==="live";
+  const h2=A.h2h[m.b]||{w:0,l:0}, pa=probA(m.a,m.b);
+  const pct=x=>x.pj?Math.round(x.pg/x.pj*100):0;
+  const rows=[
+    ["Puntos",A.pts,B.pts,""],["% victorias",pct(A),pct(B),"%"],["Sets ganados",A.sf,B.sf,""],
+    ["Juegos ganados",A.jf,B.jf,""],["Índice MVP",Math.round(E.R[m.a]),Math.round(E.R[m.b]),""],["Victorias entre ellos",h2.w,h2.l,""]];
+  const kick=m.playoff?PO_LABEL[m.id]:`Jornada ${m.j} · Partido ${FIXTURE.filter(f=>f.j===m.j).findIndex(f=>f.id===m.id)+1}`;
+  const when=m.date?`${fmtDay(m.date)}${m.time?" · "+m.time:""}${m.court?" · "+m.court:""}`:"Fecha por fijar";
+  const tick=(`${pA.name} <em>vs</em> ${pB.name} · Americana Legends Cup · `).repeat(5);
+  const side=(id,p,R,cls)=>`<div class="vx-side ${cls}" style="--c:${p.color}">
+      <div class="vx-name" aria-hidden="true">${esc(p.first)}</div>
+      <div class="vx-fig">${vsMedia(id,cls)}</div>
+      <div class="vx-tag"><b>${esc(p.name)}</b>${p.nick?`<em>“${esc(p.nick)}”</em>`:""}<span>${R.pos}º · ${R.pts} pts · ${R.pg}V ${R.pp}D</span></div>
+    </div>`;
+  const el=document.getElementById("modal");
+  el.innerHTML=`<div class="vsx" role="dialog" aria-modal="true" aria-label="${esc(pA.name)} contra ${esc(pB.name)}" style="--ca:${pA.color};--cb:${pB.color}">
+    <div class="vx-stage">
+      <div class="vx-beams" aria-hidden="true"></div><div class="vx-haze" aria-hidden="true"></div>
+      <canvas class="vx-fx" aria-hidden="true"></canvas>
+      <div class="vx-kick">${esc(kick)}<span>Americana Legends Cup · Vol. 1</span></div>
+      ${side(m.a,pA,A,"a")}${side(m.b,pB,B,"b")}
+      <div class="vx-slash" aria-hidden="true"><div class="vx-track">${tick}</div></div>
+      <div class="vx-rings" aria-hidden="true"><i></i><i></i></div>
+      <div class="vx-vs-glow" aria-hidden="true"></div><div class="vx-vs" aria-hidden="true">VS</div>
+      ${(live||r)?`<div class="vx-score num">${live?'<span class="livedot"></span>':""}${r&&r.wo?"WO":esc(scoreText(m))||"0-0"}</div>`:""}
+      <div class="vx-flash" aria-hidden="true"></div>
+    </div>
+    <button class="vx-close" data-vx-close aria-label="Cerrar">×</button>
+    <button class="vx-skip" data-vx-skip>Saltar ›</button>
+    <section class="vx-tape" aria-label="Comparativa">
+      <div class="vx-th"><div class="pl">${av(m.a)}<b>${esc(pA.first)}</b></div><span>Tale of the tape</span><div class="pl r"><b>${esc(pB.first)}</b>${av(m.b)}</div></div>
+      ${rows.map(([k,a,b,u])=>{const t=(a+b)||1;return `<div class="vx-row"><b class="num" data-count="${a}" data-u="${u}">0${u}</b><div class="vx-bars"><span class="ba" style="--w:${a/t*100}%"></span><em>${k}</em><span class="bb" style="--w:${b/t*100}%"></span></div><b class="num" data-count="${b}" data-u="${u}">0${u}</b></div>`;}).join("")}
+      <div class="vx-row form"><span>${formHtml(A.form)||"–"}</span><em>Últimos 5</em><span>${formHtml(B.form)||"–"}</span></div>
+      <div class="vx-prob">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" class="trk"/><circle cx="60" cy="60" r="50" class="pa" style="--p:${pa}"/></svg>
+        <div><small>Probabilidad según el algoritmo</small><b><span style="color:${pA.color}">${pA.first} ${Math.round(pa*100)}%</span> · <span style="color:${pB.color}">${Math.round(100-pa*100)}% ${pB.first}</span></b><span class="mini">${esc(when)}</span></div>
+      </div>
+      <div class="btnrow"><button class="btn ball" data-vx-match="${m.id}">${live?"Ver marcador en directo":r?"Ver el partido":"Pronosticar y gestionar"}</button><button class="btn ghost" data-vx-replay="${m.id}">↻ Repetir</button></div>
+    </section>
+  </div>`;
+  document.body.style.overflow="hidden";
+  const root=el.querySelector(".vsx"); const lite=document.documentElement.classList.contains("lite");
+  if(lite) root.classList.add("lite");
+  const fx=lite?{burst(){},stop(){}}:startFx(root);
+  if(!lite){ let f=0; const t0=performance.now(); (function c(t){ f++; if(t-t0<900) requestAnimationFrame(c); else if(f/((t-t0)/1000)<28){ root.classList.add("lite"); fx.stop(); } })(t0); }
+  const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const T=[]; const at=(ms,f)=>T.push(setTimeout(f,reduced?0:ms));
+  at(150,()=>root.classList.add("s1"));
+  at(800,()=>root.classList.add("s2"));
+  at(1550,()=>{ root.classList.add("s3"); if(!reduced){ fx.burst(); if(navigator.vibrate) navigator.vibrate([30,40,60]); } });
+  at(3300,()=>tape());
+  function tape(){ root.classList.add("s1","s2","s3","s4"); root.querySelectorAll("[data-count]").forEach(n=>countUp(n,reduced)); }
+  VSX={stop(){ T.forEach(clearTimeout); fx.stop(); }, skip(){ T.forEach(clearTimeout); tape(); }};
+}
+function closeVersus(){ if(VSX){ VSX.stop(); VSX=null; } }
+function countUp(n,instant){
+  const to=+n.dataset.count, u=n.dataset.u||""; if(instant){ n.textContent=to+u; return; }
+  const t0=performance.now(), d=900;
+  const step=t=>{ const k=Math.min(1,(t-t0)/d), e=1-Math.pow(1-k,3); n.textContent=Math.round(to*e)+u; if(k<1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+/* Partículas: polvo en suspensión bajo los focos + estallido de chispas en el VS */
+function startFx(root){
+  const cv=root.querySelector(".vx-fx"), cx=cv.getContext("2d"); let W,H,run=true; const dpr=1;
+  const size=()=>{ W=cv.clientWidth; H=cv.clientHeight; cv.width=W*dpr; cv.height=H*dpr; cx.setTransform(dpr,0,0,dpr,0,0); };
+  size(); addEventListener("resize",size);
+  const dust=Array.from({length:38},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.8+.3,v:Math.random()*.35+.08,a:Math.random()*.5+.15}));
+  let sparks=[];
+  const ca=getComputedStyle(root).getPropertyValue("--ca").trim(), cb=getComputedStyle(root).getPropertyValue("--cb").trim();
+  function frame(){
+    if(!run) return;
+    if(document.hidden){ requestAnimationFrame(frame); return; }
+    cx.clearRect(0,0,W,H);
+    cx.fillStyle="#cfe2ff"; for(const d of dust){ d.y-=d.v; d.x+=Math.sin(d.y/40)*.15; if(d.y<-5){d.y=H+5;d.x=Math.random()*W;} cx.globalAlpha=d.a; cx.fillRect(d.x,d.y,d.r*1.6,d.r*1.6); }
+    sparks=sparks.filter(s=>s.l>0);
+    for(const s of sparks){ s.vx*=.985; s.vy=s.vy*.985+.12; s.x+=s.vx; s.y+=s.vy; s.l-=1;
+      cx.globalAlpha=Math.min(1,s.l/40); cx.strokeStyle=s.c; cx.lineWidth=s.w; cx.beginPath(); cx.moveTo(s.x,s.y); cx.lineTo(s.x-s.vx*3,s.y-s.vy*3); cx.stroke(); }
+    cx.globalAlpha=1;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  return {
+    burst(){ const x=W/2,y=H*.46, cols=["#E3FF3B","#FFFFFF","#F3C64E",ca,cb];
+      for(let i=0;i<90;i++){ const a=Math.random()*6.283, v=Math.random()*11+3; sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,l:40+Math.random()*50,c:cols[i%cols.length],w:Math.random()*2+1}); } },
+    stop(){ run=false; removeEventListener("resize",size); }
+  };
+}
+
 /* =====================================================================
    Ventanas
    ===================================================================== */
 function showModal(html){ document.getElementById("modal").innerHTML=`<div class="modal" data-backdrop><div class="sheet" role="dialog" aria-modal="true"><button class="close" data-close aria-label="Cerrar">×</button>${html}</div></div>`; document.body.style.overflow="hidden"; }
-function closeModal(){ S.modal=null; document.getElementById("modal").innerHTML=""; document.body.style.overflow=""; }
+function closeModal(){ closeVersus(); S.modal=null; document.getElementById("modal").innerHTML=""; document.body.style.overflow=""; }
 
 function cmpTable(a,b){
   const st=standings().byId, A=st[a], B=st[b], h2=A.h2h[b]||{w:0,l:0}, pa=probA(a,b);
@@ -637,7 +709,7 @@ function openMatch(id){
   const m=getMatch(id), r=result(m);
   if(!m.a||!m.b){ showModal(`<div class="sheet-body"><h3>Por decidir</h3><p>Este cruce se completa cuando acabe la ronda anterior.</p></div>`); return; }
   const prev=FIXTURE.filter(f=>f.id!==id&&((f.a===m.a&&f.b===m.b)||(f.a===m.b&&f.b===m.a))).map(f=>getMatch(f.id)).filter(x=>result(x));
-  let h=poster(m,{still:true})+`<div class="sheet-body">`;
+  let h=poster(m,{still:true})+`<div class="sheet-body"><button class="btn ball vx-open" data-versus="${id}">▶ Ver presentación del cara a cara</button>`;
   if(m.status==="live"||r) h+=scoreboard(m);
   h+=`<h3 style="margin-top:14px">Cara a cara</h3>${cmpTable(m.a,m.b)}`;
   if(prev.length) h+=`<p class="mini">Ya se enfrentaron: ${prev.map(x=>`${nm(x.a)} ${scoreText(x)} ${nm(x.b)}`).join("; ")}</p>`;
@@ -675,7 +747,7 @@ function openPlayer(id){
 }
 
 function requirePin(then){
-  if(getPin() && (Store.sb || getPin()===CFG.LOCAL_PIN)) return then();
+  if(getPin() && (Store.db || getPin()===CFG.LOCAL_PIN)) return then();
   const back=S.modal; S.modal=null;
   showModal(`<div class="sheet-body"><h3>PIN de la liga</h3><p class="mini">Para tocar resultados hace falta el PIN del grupo. Solo se pide una vez en cada móvil.</p><input id="pin" inputmode="numeric" autocomplete="off" aria-label="PIN"><div class="err" id="pinerr"></div><div class="btnrow"><button class="btn" id="pinok">Entrar</button></div></div>`);
   const ok=async()=>{ const v=document.getElementById("pin").value.trim();
@@ -739,7 +811,7 @@ function openScorer(id){
    Eventos
    ===================================================================== */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-tab],[data-open-match],[data-open-player],[data-close],[data-backdrop],[data-act],[data-pred],[data-inv],[data-vote],[data-mvpj],#export");
+  const t=e.target.closest("[data-tab],[data-open-match],[data-open-player],[data-close],[data-backdrop],[data-act],[data-pred],[data-inv],[data-vote],[data-mvpj],#export,[data-versus],[data-vx-close],[data-vx-skip],[data-vx-match],[data-vx-replay]");
   if(!t) return;
   if(t.hasAttribute("data-backdrop")&&e.target!==t) return;
   if(t.dataset.tab){ S.tab=t.dataset.tab; history.replaceState(null,"","#"+S.tab); closeModal(); render(); window.scrollTo(0,0); return; }
@@ -758,6 +830,11 @@ document.addEventListener("click",e=>{
     const u=URL.createObjectURL(blob), l=document.createElement("a"); l.href=u; l.download="legends-cup-datos.json"; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000);
     return;
   }
+  if(t.dataset.versus){ openVersus(t.dataset.versus); return; }
+  if(t.hasAttribute("data-vx-close")){ closeModal(); return; }
+  if(t.hasAttribute("data-vx-skip")){ VSX&&VSX.skip(); return; }
+  if(t.dataset.vxMatch){ const id=t.dataset.vxMatch; closeModal(); openMatch(id); return; }
+  if(t.dataset.vxReplay){ openVersus(t.dataset.vxReplay); return; }
   if(t.dataset.openMatch){ openMatch(t.dataset.openMatch); return; }
   if(t.dataset.openPlayer){ openPlayer(t.dataset.openPlayer); return; }
   if(t.dataset.pred){
@@ -793,6 +870,17 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("change",e=>{ if(e.target.id==="me"){ S.me=e.target.value; localStorage.setItem("am_me",S.me); render(); }
   if(e.target.id==="h2a"){ S.h2a=e.target.value; render(); } if(e.target.id==="h2b"){ S.h2b=e.target.value; render(); } });
+
+/* Modo ligero automático: si el dispositivo va justo, se apagan los efectos más pesados */
+(function(){
+  if(sessionStorage.getItem("am_lite")==="1"){ document.documentElement.classList.add("lite"); return; }
+  const measure=()=>{ let f=0; const t0=performance.now();
+    (function c(t){ f++; if(t-t0<1500) requestAnimationFrame(c); else if(f/((t-t0)/1000)<30 && !document.hidden){
+      document.documentElement.classList.add("lite"); try{sessionStorage.setItem("am_lite","1");}catch(e){} } })(t0); };
+  // espera a que la página termine de cargar y se quede quieta
+  const go=()=>setTimeout(measure,2500);
+  if(document.readyState==="complete") go(); else addEventListener("load",go,{once:true});
+})();
 
 /* Precarga de las caras para que los carteles aparezcan sin saltos */
 PLAYERS.forEach(p=>{ const i=new Image(); i.decoding="async"; i.src=IMG(p.id); });
