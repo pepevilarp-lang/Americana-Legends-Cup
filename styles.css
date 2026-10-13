@@ -717,3 +717,7 @@ body.locked #view,body.locked header.top,body.locked nav.tabs,body.locked #modal
 .lite .gate-rays,.lite .gate .vx-beams{display:none}
 .lite .gate-t .w{animation:none}
 @media (prefers-reduced-motion:reduce){.gate *,.gate{animation:none!important}.gate .gf img,.gate .gf::before{transition-duration:.2s;transition-delay:0s}}
+
+.gate-link{display:block;margin:10px auto 0;background:none;border:0;color:var(--ice);text-decoration:underline;font-size:12px;cursor:pointer;padding:4px}
+.gate-diag{display:none;text-align:left;white-space:pre-wrap;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.55);color:#fff;padding:10px;margin:8px 0 0;border:1px solid rgba(255,255,255,.2)}
+.gate-diag.on{display:block}
