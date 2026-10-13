@@ -1,9 +1,0 @@
-{
-  "name": "vaci",
-  "version": "0.1.0",
-  "description": "Vaci - descubre el dinero escondido en tu casa",
-  "main": "index.html",
-  "type": "module",
-  "engines": { "node": "22.x" },
-  "scripts": { "build": "echo 'Static site'" }
-}
