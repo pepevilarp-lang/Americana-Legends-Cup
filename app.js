@@ -20,8 +20,20 @@ const PLAYERS = [
 ];
 const P = Object.fromEntries(PLAYERS.map(p=>[p.id,p]));
 /* Las fotos se piden con ?v=… para que todos los móviles descarguen las nuevas y no las antiguas en caché */
-const IMG_V = "3";
+const IMG_V = "4";
 const IMG  = id => (window.PHOTO_URLS && window.PHOTO_URLS[id]) || `img/${id}.webp?v=${IMG_V}`;      // cabeza y hombros
+/* Si una foto no carga, se prueba con la otra versión del mismo jugador y, si tampoco, se pone su inicial: nunca queda un hueco */
+function initialsSvg(id){
+  const p=P[id]; const c=p?p.color:"#3E86E8", l=p?p.first[0]:"?";
+  return "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 420"><defs><radialGradient id="g" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#06173F"/></radialGradient></defs><ellipse cx="180" cy="190" rx="150" ry="175" fill="url(#g)"/><text x="180" y="250" text-anchor="middle" font-family="Impact,Arial Black,sans-serif" font-size="170" font-style="italic" fill="#fff">${l}</text></svg>`);
+}
+document.addEventListener("error",e=>{
+  const t=e.target; if(!t||t.tagName!=="IMG") return;
+  const m=(t.getAttribute("src")||"").match(/img\/([a-z]+)(-body)?\.webp/); if(!m) return;
+  const id=m[1], body=!!m[2], n=+(t.dataset.fb||0); t.dataset.fb=n+1;
+  if(n===0) t.src = body ? `img/${id}.webp?v=${IMG_V}r` : `img/${id}-body.webp?v=${IMG_V}r`;
+  else if(n===1) t.src=initialsSvg(id);
+},true);
 const BODY = id => (window.PHOTO_URLS && window.PHOTO_URLS[id+"-body"]) || `img/${id}-body.webp?v=${IMG_V}`; // de cintura para arriba, brazos cruzados
 
 const JORNADAS = [
