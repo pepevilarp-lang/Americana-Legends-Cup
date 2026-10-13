@@ -17,7 +17,10 @@ const PLAYERS = [
   {id:"tomas",   name:"Tomas Arqued",   first:"Tomas",   last:"Arqued",    color:"#80ED99", skin:"#BB7156", nick:"Comité Junior", style:"Búsqueda de estilo", bio:"Mucho pelo pero pocas nueces y también mucho ruido pero pocas nueces. Aún está intentando encontrar su tenis. Sin duda, uno de los mayores representantes del comité junior."},
 ];
 const P = Object.fromEntries(PLAYERS.map(p=>[p.id,p]));
-const IMG = id => (window.PHOTO_URLS && window.PHOTO_URLS[id]) || `img/${id}.webp`;
+/* Las fotos se piden con ?v=… para que todos los móviles descarguen las nuevas y no las antiguas en caché */
+const IMG_V = "3";
+const IMG  = id => (window.PHOTO_URLS && window.PHOTO_URLS[id]) || `img/${id}.webp?v=${IMG_V}`;      // cabeza y hombros
+const BODY = id => (window.PHOTO_URLS && window.PHOTO_URLS[id+"-body"]) || `img/${id}-body.webp?v=${IMG_V}`; // de cintura para arriba, brazos cruzados
 
 const JORNADAS = [
   ["2026-09-28","2026-10-07"],["2026-10-08","2026-10-17"],["2026-10-18","2026-10-27"],
@@ -319,8 +322,8 @@ function poster(m,{wide=false,still=false}={}){
   return `<article class="poster ${wide?"wide":""} ${intro?"intro":""}" ${still?"":`data-versus="${m.id}" role="button" tabindex="0"`} aria-label="${esc(fullA)} contra ${esc(fullB)}" style="--fs:${fs}cqw;--fsw:${fsw}cqw;--ca:${A?A.color:"#3E86E8"};--cb:${B?B.color:"#F3C64E"}">
     <div class="p-beams" aria-hidden="true"></div><div class="p-flare" aria-hidden="true"></div>${smoke(wide)}<div class="p-bg" aria-hidden="true"><span>${esc(A?A.first:"?")}</span><span>${esc(B?B.first:"?")}</span></div>
     ${A?`<div class="p-glow l" style="background:${A.color}"></div>`:""}${B?`<div class="p-glow r" style="background:${B.color}"></div>`:""}
-    ${A?`<div class="hero l" style="--c:${A.color}"><img src="${IMG(m.a)}" alt="" decoding="async"></div>`:""}
-    ${B?`<div class="hero r" style="--c:${B.color}"><img src="${IMG(m.b)}" alt="" decoding="async"></div>`:""}
+    ${A?`<div class="hero l body" style="--c:${A.color}"><img src="${BODY(m.a)}" alt="" decoding="async"></div>`:""}
+    ${B?`<div class="hero r body" style="--c:${B.color}"><img src="${BODY(m.b)}" alt="" decoding="async"></div>`:""}
     <div class="p-vs" aria-hidden="true">VS</div>
     ${tag}
     ${st[m.a]?`<div class="p-pos l">${st[m.a].pos}º<small>${st[m.a].pts} pts</small></div>`:""}
@@ -343,7 +346,7 @@ function playerPoster(id){
   return `<article class="poster" aria-label="${esc(p.name)}" style="--fs:${fs}cqw;--ca:${p.color};--cb:#F3C64E">
     ${smoke(true)}<div class="p-bg" aria-hidden="true"><span>${esc(p.first)}</span><span>${esc(p.last)}</span></div>
     <div class="p-beams" aria-hidden="true"></div><div class="p-glow" style="left:22%;background:${p.color}"></div>
-    <div class="hero solo" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></div>
+    <div class="hero solo body" style="--c:${p.color}"><img src="${BODY(id)}" alt=""></div>
     <div class="p-pos l" style="top:4cqw">${R.pos}º<small>${R.pts} pts</small></div>
     <div class="bands" aria-hidden="true"><div class="band b1"><span class="track">${(esc(p.name)+" · <em>"+R.pg+"V "+R.pp+"D</em> · ").repeat(8)}</span></div></div>
     <div class="p-title"><div class="p-kicker"><span class="bl"></span>Americana Legends Cup · Vol. 1</div><div class="p-names">${esc(p.name)}</div><div class="p-meta">${p.nick?"“"+esc(p.nick)+"” · ":""}${formHtml(R.form)}</div></div>
@@ -461,7 +464,7 @@ function vClas(){
 }
 function vJug(){
   return `<h2>Jugadores</h2><p class="sub">Toca a cualquiera para ver su ficha.</p><div class="pgrid">${standings().map(r=>{const p=P[r.id];return `
-    <button class="card" data-open-player="${r.id}" style="--c:${p.color}"><span class="nm-bg" aria-hidden="true">${esc(p.first)}</span><span class="cimg"><img src="${IMG(r.id)}" alt="" loading="lazy" decoding="async"></span><span class="rk">${r.pos}</span>
+    <button class="card" data-open-player="${r.id}" style="--c:${p.color}"><span class="nm-bg" aria-hidden="true">${esc(p.first)}</span><span class="cimg"><img class="bd" src="${BODY(r.id)}" alt="" loading="lazy" decoding="async"></span><span class="rk">${r.pos}</span>
     <span class="plate"><b>${esc(p.first)}</b>${p.nick?`<em class="nick">“${esc(p.nick)}”</em>`:""}<span>${r.pts} pts · ${r.pg}V ${r.pp}D</span></span><span class="stripe"></span></button>`;}).join("")}</div>`;
 }
 function vPron(){
@@ -611,7 +614,7 @@ function walkBlob(id){ if(!WALKOUTS.includes(id)) return Promise.resolve(null);
 WALKOUTS.forEach(id=>setTimeout(()=>walkBlob(id),3000));
 let VSX=null;
 function vsMedia(id){
-  return `<img class="vx-img" src="${IMG(id)}" alt="" decoding="async" ${WALKOUTS.includes(id)?`data-walk="${id}"`:""}>`;
+  return `<img class="vx-img" src="${BODY(id)}" alt="" decoding="async" ${WALKOUTS.includes(id)?`data-walk="${id}"`:""}>`;
 }
 function openVersus(id){
   const m=getMatch(id); if(!m.a||!m.b){ openMatch(id); return; }
@@ -906,5 +909,6 @@ document.addEventListener("change",e=>{ if(e.target.id==="me"){ S.me=e.target.va
 
 /* Precarga de las caras para que los carteles aparezcan sin saltos */
 PLAYERS.forEach(p=>{ const i=new Image(); i.decoding="async"; i.src=IMG(p.id); });
+setTimeout(()=>PLAYERS.forEach(p=>{ const i=new Image(); i.decoding="async"; i.src=BODY(p.id); }),2500);
 render();
 Store.init();
