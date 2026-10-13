@@ -17,7 +17,7 @@ const PLAYERS = [
   {id:"tomas",   name:"Tomas Arqued",   first:"Tomas",   last:"Arqued",    color:"#80ED99", skin:"#BB7156", nick:"Comité Junior", style:"Búsqueda de estilo", bio:"Mucho pelo pero pocas nueces y también mucho ruido pero pocas nueces. Aún está intentando encontrar su tenis. Sin duda, uno de los mayores representantes del comité junior."},
 ];
 const P = Object.fromEntries(PLAYERS.map(p=>[p.id,p]));
-const IMG = id => (window.PHOTO_URLS && window.PHOTO_URLS[id]) || `img/players/${id}.webp`;
+const IMG = id => (window.PHOTO_URLS && window.PHOTO_URLS[id]) || `img/${id}.webp`;
 
 const JORNADAS = [
   ["2026-09-28","2026-10-07"],["2026-10-08","2026-10-17"],["2026-10-18","2026-10-27"],
