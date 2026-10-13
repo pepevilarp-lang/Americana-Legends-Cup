@@ -1,5 +1,7 @@
 "use strict";
 const CFG = window.LIGA_CONFIG || {};
+const CFG_BROKEN = !window.LIGA_CONFIG;   // config.js no se cargó o tiene un error de sintaxis
+const IS_LOCAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) || location.protocol==="file:";
 
 /* =====================================================================
    Jugadores y calendario
@@ -71,6 +73,14 @@ const Store = {
   bump(){ VERSION++; schedule(); },
   async init(){
     /* Sin Firebase configurado: modo prueba con PIN local */
+    if(!CFG.FIREBASE && !IS_LOCAL){
+      /* Web publicada sin Firebase configurado: no se puede usar, y es mejor decirlo que pedir un PIN que no puede funcionar */
+      setSync(false,"Sin Firebase configurado");
+      setGate("error", CFG_BROKEN
+        ? "No se ha podido leer config.js: no está subido a GitHub o tiene un error al pegar la configuración (revisa llaves, comas y comillas)."
+        : "Esta web todavía no está conectada a Firebase: en config.js sigue poniendo «FIREBASE: null». Hay que pegar ahí la configuración de tu proyecto de Firebase.");
+      return;
+    }
     if(!CFG.FIREBASE){
       this.local=true; setSync(false,"Modo prueba: solo en este navegador");
       this.loadLocal(); this.member=localStorage.getItem("am_ok")==="1";
@@ -203,7 +213,7 @@ function gateState(st,msg){
 async function runDiagnostic(){
   const out=document.getElementById("gate-diag"); if(!out) return; out.classList.add("on"); out.textContent="Comprobando…";
   const cfg=CFG.FIREBASE||{}, L=[`Proyecto de config.js: ${cfg.projectId||"(sin configurar)"}`];
-  if(!Store.db){ out.textContent=L.join("\n")+"\nSin conexión con Firebase: recarga la página."; return; }
+  if(!Store.db){ out.textContent=L.join("\n")+(CFG.FIREBASE?"\nSin conexión con Firebase: recarga la página.":"\nconfig.js no tiene la configuración de Firebase (FIREBASE: null)."); return; }
   const u=firebase.auth().currentUser; L.push(`Sesión anónima: ${u?"sí ("+u.uid.slice(0,6)+"…)":"NO"}`);
   const t=async f=>{ try{ await f(); return "ok"; }catch(e){ return isPerm(e)?"denegado":String(e.code||e.message||"error"); } };
   const ping=await t(()=>Store.db.collection("ping").doc("x").get());
