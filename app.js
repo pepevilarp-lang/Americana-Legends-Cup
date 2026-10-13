@@ -65,30 +65,68 @@ const SEED = {
    Datos: Supabase en tiempo real (o modo prueba local)
    ===================================================================== */
 let VERSION = 0;
+const isPerm = e => /permission|PERMISSION_DENIED/i.test(String(e&&(e.code||e.message)));
 const Store = {
-  matches:{}, preds:{}, votes:{}, db:null, online:false,
+  matches:{}, preds:{}, votes:{}, db:null, member:false, listening:false, local:false, first:false, unsubs:[],
   bump(){ VERSION++; schedule(); },
   async init(){
-    if(CFG.FIREBASE && window.firebase){
-      try{
-        firebase.initializeApp(CFG.FIREBASE);
-        await firebase.auth().signInAnonymously();
-        this.db = firebase.firestore();
-        const listen=(col,target)=>this.db.collection(col).onSnapshot(snap=>{
-          snap.docChanges().forEach(c=>{ if(c.type==="removed") delete this[target][c.doc.id]; else this[target][c.doc.id]=c.doc.data(); });
-          if(col==="matches"){ this.online=true; setSync(true,"En directo para todos"); }
-          this.bump();
-        }, err=>{ console.error(err); setSync(false,"Sin permiso para leer: revisa las reglas de Firestore"); });
-        listen("matches","matches"); listen("preds","preds"); listen("votes","votes");
-        return;
-      }catch(e){
-        console.error(e);
-        setSync(false, /auth|operation-not-allowed/i.test(String(e.code||e.message)) ? "Activa el acceso Anónimo en Firebase Authentication" : "No se pudo conectar con Firebase");
-        this.db=null;
-      }
-    } else setSync(false,"Modo prueba: solo en este navegador");
-    this.loadLocal(); this.bump();
-    window.addEventListener("storage",()=>{ this.loadLocal(); this.bump(); });
+    /* Sin Firebase configurado: modo prueba con PIN local */
+    if(!CFG.FIREBASE){
+      this.local=true; setSync(false,"Modo prueba: solo en este navegador");
+      this.loadLocal(); this.member=localStorage.getItem("am_ok")==="1";
+      window.addEventListener("storage",()=>{ this.loadLocal(); this.bump(); });
+      this.bump(); this.member?hideGate():setGate("pin"); return;
+    }
+    if(!window.firebase){ setGate("error","No se pudo cargar Firebase. Revisa la conexión y recarga la página."); return; }
+    try{
+      firebase.initializeApp(CFG.FIREBASE);
+      await firebase.auth().signInAnonymously();
+      this.db=firebase.firestore();
+    }catch(e){
+      console.error(e); const c=String(e.code||e.message||e);
+      setSync(false,"Sin conexión con Firebase");
+      setGate("error", /operation-not-allowed|admin-restricted/i.test(c) ? "Falta activar el acceso Anónimo: Firebase > Authentication > Método de acceso > Anónimo."
+        : /api-key|invalid-api|configuration/i.test(c) ? "La configuración de Firebase en config.js no es válida (revisa apiKey y projectId)."
+        : `No se pudo conectar con Firebase (${c}). Revisa la conexión y reintenta.`);
+      return;
+    }
+    /* Si ya metió el PIN en este móvil, entra directo; si el acceso no es válido, las reglas lo rechazan y se vuelve a pedir */
+    if(localStorage.getItem("am_ok")==="1"){ this.member=true; this.listen(); }
+    else setGate("pin");
+  },
+  listen(){
+    if(this.listening) return; this.listening=true; this.first=false;
+    const on=(col,target)=>this.db.collection(col).onSnapshot(snap=>{
+      snap.docChanges().forEach(c=>{ if(c.type==="removed") delete this[target][c.doc.id]; else this[target][c.doc.id]=c.doc.data(); });
+      if(col==="matches"){ setSync(true,"En directo para todos"); if(!this.first){ this.first=true; hideGate(); } }
+      this.bump();
+    }, err=>{ console.error(err);
+      if(isPerm(err)) this.lock("Tu acceso ha caducado. Vuelve a meter el PIN.");
+      else setSync(false,"Sin conexión con la base de datos"); });
+    this.unsubs=[on("matches","matches"),on("preds","preds"),on("votes","votes")];
+    setTimeout(()=>{ if(this.member&&document.getElementById("gate")&&document.querySelector("#gate .gate-load")) hideGate(); },7000);
+  },
+  lock(msg){
+    if(!this.member && document.querySelector("#gate #gate-pin")) return;
+    this.member=false; try{ localStorage.removeItem("am_ok"); }catch(e){}
+    this.unsubs.forEach(u=>{ try{u();}catch(e){} }); this.unsubs=[]; this.listening=false; this.first=false;
+    this.matches={}; this.preds={}; this.votes={}; this.bump(); closeModal(); setGate("pin",msg);
+  },
+  /* Comprueba el PIN: el servidor lo valida con las reglas de Firestore, el PIN no está en el código */
+  async verifyPin(pin){
+    if(this.local){
+      if(pin===(CFG.LOCAL_PIN||"")){ this.member=true; localStorage.setItem("am_ok","1"); return {ok:true}; }
+      return {ok:false,msg:"PIN incorrecto."};
+    }
+    const u=firebase.auth().currentUser; if(!u) return {ok:false,msg:"No se pudo iniciar sesión en Firebase. Recarga la página."};
+    try{ await this.db.collection("editors").doc(u.uid).set({pin}); }
+    catch(e){
+      if(!isPerm(e)) return {ok:false,msg:`No se pudo comprobar el PIN (${e.code||e.message}). Revisa la conexión.`};
+      /* ¿Ya eras miembro de antes? (reglas antiguas sin 'update'): lo comprobamos escribiendo y borrando un documento de prueba */
+      try{ const d=this.db.collection("matches").doc("__probe"); await d.set({p:1}); await d.delete(); }
+      catch(e2){ return {ok:false,msg:"PIN incorrecto."}; }
+    }
+    this.member=true; localStorage.setItem("am_ok","1"); this.listen(); return {ok:true};
   },
   loadLocal(){
     try{ this.matches=JSON.parse(localStorage.getItem("am_matches")||"{}"); this.preds=JSON.parse(localStorage.getItem("am_preds")||"{}"); this.votes=JSON.parse(localStorage.getItem("am_votes")||"{}"); }
@@ -104,22 +142,116 @@ const Store = {
     catch(e){
       if(prev) this[target][id]=prev; else delete this[target][id];
       this.bump();
-      if(col==="matches" && /permission/i.test(String(e.code||e.message))){ localStorage.removeItem("am_pin"); toast("Sin permiso: vuelve a meter el PIN"); }
-      else toast(errMsg);
+      if(isPerm(e)) this.lock("Tu acceso ha caducado. Vuelve a meter el PIN."); else toast(errMsg);
       return false;
     }
   },
   setMatch(id,data){ data.updated=Date.now(); return this.write("matches","matches",id,data,"No se pudo guardar. Revisa la conexión."); },
   setPred(id,data){ return this.write("preds","preds",id,data,"No se pudo guardar el pronóstico"); },
   setVote(id,data){ return this.write("votes","votes",id,data,"No se pudo guardar el voto"); },
-  async checkPin(pin){
-    if(!this.db) return pin===(CFG.LOCAL_PIN||"");
-    const uid=firebase.auth().currentUser&&firebase.auth().currentUser.uid; if(!uid) return false;
-    try{ await this.db.collection("editors").doc(uid).set({pin}); return true; }
-    catch(e){ return false; }
-  },
 };
-const getPin = ()=>localStorage.getItem("am_pin")||"";
+
+/* =====================================================================
+   PANTALLA DE ACCESO: se pide el PIN al abrir la app y vale para todo
+   ===================================================================== */
+let GATE_TRIES=0, GATE_FX=null, GATE_T0=0;
+const GATE_ORDER=[8,6,4,2,0,1,3,5,7,9];
+const reducedMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* Trofeo con laureles (vectorial, sin imágenes) */
+function trophySvg(){
+  let lv="";
+  for(let k=0;k<9;k++){
+    const th=(112+k*17)*Math.PI/180, R=47, x=60+R*Math.cos(th), y=68-R*Math.sin(th), rot=-(112+k*17)+8;
+    lv+=`<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="8.5" ry="3.6" transform="rotate(${rot.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+    lv+=`<ellipse cx="${(120-x).toFixed(1)}" cy="${y.toFixed(1)}" rx="8.5" ry="3.6" transform="rotate(${(180-rot).toFixed(0)} ${(120-x).toFixed(1)} ${y.toFixed(1)})"/>`;
+  }
+  return `<svg viewBox="0 0 120 132" aria-hidden="true"><defs>
+    <linearGradient id="gg" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#FFF4B8"/><stop offset=".45" stop-color="#F3C64E"/><stop offset="1" stop-color="#B8860B"/></linearGradient></defs>
+    <g fill="url(#gg)" opacity=".92">${lv}</g>
+    <path d="M36 16H84V44C84 68 74 80 60 82C46 80 36 68 36 44Z" fill="url(#gg)"/>
+    <path d="M36 24H24C22 44 30 56 42 60M84 24H96C98 44 90 56 78 60" fill="none" stroke="url(#gg)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M54 82H66V102H54Z" fill="url(#gg)"/><path d="M40 102H80L86 118H34Z" fill="url(#gg)"/>
+    <path d="M44 24C44 44 48 62 58 72" stroke="#fff" stroke-opacity=".75" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M60 30l3.6 7.4 8.1 1.1-5.9 5.7 1.5 8.1L60 48.2l-7.3 3.9 1.5-8.1-5.9-5.7 8.1-1.1z" fill="#06173F" opacity=".35"/></svg>`;
+}
+function lockSvg(){
+  return `<svg viewBox="0 0 40 46" aria-hidden="true"><defs><linearGradient id="gg2" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#FFF4B8"/><stop offset=".5" stop-color="#F3C64E"/><stop offset="1" stop-color="#B8860B"/></linearGradient></defs>
+    <path class="sh" d="M10 21V14a10 10 0 0 1 20 0v7" fill="none" stroke="#F3C64E" stroke-width="4.2" stroke-linecap="round"/>
+    <rect x="5" y="20" width="30" height="22" rx="4" fill="url(#gg2)"/><circle cx="20" cy="29.5" r="3.2" fill="#06173F"/><rect x="18.8" y="30" width="2.4" height="7" rx="1" fill="#06173F"/></svg>`;
+}
+/* Las 10 leyendas en arco, en silueta oscura hasta que se desbloquea el acceso */
+function gateCrowd(){
+  const list=GATE_ORDER.map(i=>PLAYERS[i]), mid=(list.length-1)/2;
+  return `<div class="gate-crowd" aria-hidden="true">${list.map((p,i)=>{ const d=Math.abs(i-mid);
+    return `<span class="gf" style="--c:${p.color};--d:${d};--i:${i};--o:${Math.floor(d)};z-index:${20-Math.round(d*2)}"><img src="${IMG(p.id)}" alt="" decoding="async"></span>`; }).join("")}</div>`;
+}
+function gateHead(){
+  return `<div class="gate-emblem">${trophySvg()}</div><span class="gate-k">Americana</span>
+    <span class="gate-t"><span class="w w1">Legends</span> <span class="w w2">Cup</span></span><span class="gate-v">Vol. 1 · 2026–27</span>`;
+}
+function gateState(st,msg){
+  if(st==="loading") return `<div class="gate-bar"><i></i></div><p class="gate-load">${esc(msg||"Preparando el estadio…")}</p>`;
+  if(st==="error") return `<div class="gate-panel"><div class="gate-err" role="alert">${esc(msg)}</div><button class="btn ball" id="gate-retry">Reintentar</button></div>`;
+  return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><label for="gate-pin">Acceso de jugadores</label>
+    <input id="gate-pin" type="password" inputmode="numeric" autocomplete="off" enterkeyhint="go" maxlength="16" placeholder="PIN" aria-describedby="gate-err">
+    <button class="btn ball" id="gate-ok">Entrar al estadio</button><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div>
+    <p class="gate-hint">Te lo pedirá una sola vez en este móvil. El PIN te lo da el organizador.</p></div>`;
+}
+function setGate(st,msg){
+  let g=document.getElementById("gate");
+  if(!g){
+    GATE_T0=0; g=document.createElement("div"); g.id="gate"; g.className="gate intro"; g.setAttribute("role","dialog"); g.setAttribute("aria-modal","true"); g.setAttribute("aria-label","Acceso");
+    g.innerHTML=`<div class="vx-beams" aria-hidden="true"></div><div class="gate-rays" aria-hidden="true"></div>${smoke(true)}<canvas class="vx-fx" aria-hidden="true"></canvas>${gateCrowd()}
+      <div class="gate-box">${gateHead()}<div class="gate-state"></div></div><div class="gate-flash" aria-hidden="true"></div>`;
+    document.body.appendChild(g); document.body.classList.add("locked");
+    if(!document.documentElement.classList.contains("lite") && !reducedMotion()) GATE_FX=startFx(g);
+    setTimeout(()=>g.classList.remove("intro"),2700);
+  }
+  if(st==="pin"){ g.classList.remove("unlocking","leaving","burst"); delete g.dataset.leaving; GATE_T0=0; }
+  g.querySelector(".gate-state").innerHTML=gateState(st,msg);
+  const retry=g.querySelector("#gate-retry"); if(retry) retry.onclick=()=>location.reload();
+  const pin=g.querySelector("#gate-pin"), ok=g.querySelector("#gate-ok"), err=g.querySelector("#gate-err");
+  if(pin&&ok){
+    const submit=async()=>{
+      const v=pin.value.trim(); if(!v){ err.textContent="Escribe el PIN."; return; }
+      ok.disabled=true; ok.textContent="Comprobando…"; err.textContent="";
+      const r=await Store.verifyPin(v);
+      if(r.ok){ unlockGate(); if(Store.local) hideGate(); return; }
+      GATE_TRIES++; ok.disabled=false; ok.textContent="Entrar al estadio"; pin.value=""; pin.focus();
+      err.textContent=r.msg;
+      const pn=g.querySelector(".gate-panel"); if(pn){ pn.classList.remove("shake"); void pn.offsetWidth; pn.classList.add("shake"); }
+      if(navigator.vibrate) navigator.vibrate(120);
+      if(GATE_TRIES>=2 && /incorrecto/i.test(r.msg)){ const h=g.querySelector(".gate-hint"); if(h) h.textContent="¿Seguro que es ese? Si sí, el organizador debe revisar en Firebase que existe config > pin con el campo pin (texto) y que las reglas están publicadas."; }
+    };
+    ok.onclick=submit; pin.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+    setTimeout(()=>pin.focus(),g.classList.contains("intro")?1900:60);
+  }
+}
+/* PIN correcto: se abre el candado, destello y las leyendas se encienden una a una */
+function unlockGate(){
+  const g=document.getElementById("gate"); if(!g||g.classList.contains("unlocking")) return;
+  GATE_T0=performance.now(); g.classList.add("unlocking","burst");
+  const pn=g.querySelector(".gate-panel"); if(pn) pn.classList.add("ok");
+  const b=g.querySelector("#gate-ok"); if(b){ b.textContent="¡Acceso concedido!"; b.disabled=true; }
+  if(GATE_FX) GATE_FX.burst();
+  if(navigator.vibrate) navigator.vibrate([30,40,60]);
+  setTimeout(()=>{ const x=document.getElementById("gate"); if(x&&!x.dataset.leaving&&Store.member) setGate("loading","Cargando datos…"); },3000);
+}
+/* Salida: las leyendas se iluminan, el estadio se desvanece y aparece la app */
+function hideGate(){
+  const g=document.getElementById("gate");
+  if(!g){ document.body.classList.remove("locked"); render(); return; }
+  if(g.dataset.leaving) return;
+  const quick=reducedMotion();
+  const wait=GATE_T0 ? Math.max(0,(quick?200:1800)-(performance.now()-GATE_T0)) : (quick?0:700);
+  if(!GATE_T0) g.classList.add("unlocking");
+  setTimeout(()=>{
+    if(g.dataset.leaving) return; g.dataset.leaving="1"; g.classList.add("unlocking","leaving");
+    document.body.classList.remove("locked"); render();
+    setTimeout(()=>{ if(GATE_FX){ GATE_FX.stop(); GATE_FX=null; } g.remove(); },quick?50:700);
+  },wait);
+}
 function setSync(on,txt){const el=document.getElementById("sync");el.classList.toggle("on",on);el.querySelector("span").textContent=txt;}
 
 /* =====================================================================
@@ -772,13 +904,8 @@ function openPlayer(id){
 }
 
 function requirePin(then){
-  if(getPin() && (Store.db || getPin()===CFG.LOCAL_PIN)) return then();
-  const back=S.modal; S.modal=null;
-  showModal(`<div class="sheet-body"><h3>PIN de la liga</h3><p class="mini">Para tocar resultados hace falta el PIN del grupo. Solo se pide una vez en cada móvil.</p><input id="pin" inputmode="numeric" autocomplete="off" aria-label="PIN"><div class="err" id="pinerr"></div><div class="btnrow"><button class="btn" id="pinok">Entrar</button></div></div>`);
-  const ok=async()=>{ const v=document.getElementById("pin").value.trim();
-    if(await Store.checkPin(v)){ localStorage.setItem("am_pin",v); closeModal(); then(); }
-    else document.getElementById("pinerr").textContent="PIN incorrecto. Pídeselo al organizador."; };
-  document.getElementById("pinok").onclick=ok; document.getElementById("pin").onkeydown=e=>{if(e.key==="Enter")ok();}; document.getElementById("pin").focus();
+  if(Store.member) return then();
+  setGate("pin","Introduce el PIN para continuar.");
 }
 
 function openResult(id){
@@ -910,5 +1037,6 @@ document.addEventListener("change",e=>{ if(e.target.id==="me"){ S.me=e.target.va
 /* Precarga de las caras para que los carteles aparezcan sin saltos */
 PLAYERS.forEach(p=>{ const i=new Image(); i.decoding="async"; i.src=IMG(p.id); });
 setTimeout(()=>PLAYERS.forEach(p=>{ const i=new Image(); i.decoding="async"; i.src=BODY(p.id); }),2500);
+setGate("loading");
 render();
 Store.init();
