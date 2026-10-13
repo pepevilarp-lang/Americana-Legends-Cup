@@ -288,6 +288,18 @@ const sign=n=>(n>0?"+":"")+n;
 /* =====================================================================
    El cartel del partido
    ===================================================================== */
+
+/* =====================================================================
+   HUMO ANIMADO: capas con textura que se desplazan en bucle sin cortes.
+   a = color del jugador 1, b = color del jugador 2, c = niebla clara.
+   ===================================================================== */
+function smoke(rich=false,extra=""){
+  return `<div class="smoke ${rich?"rich":""} ${extra}" aria-hidden="true"><div class="sw a"><i class="s1"></i><i class="s2"></i></div><div class="sw b"><i class="s1"></i><i class="s2"></i></div><div class="sw c"><i class="s1"></i></div></div>`;
+}
+const smokeIO=("IntersectionObserver" in window)?new IntersectionObserver(es=>es.forEach(e=>e.target.classList.toggle("off",!e.isIntersecting)),{rootMargin:"120px"}):null;
+function watchSmoke(){ if(!smokeIO) return; document.querySelectorAll(".smoke:not([data-w])").forEach(n=>{ n.dataset.w="1"; smokeIO.observe(n); }); }
+(function(){ let q=false; new MutationObserver(()=>{ if(q) return; q=true; requestAnimationFrame(()=>{ q=false; watchSmoke(); }); }).observe(document.body,{childList:true,subtree:true}); })();
+
 const SEEN=new Set();
 function poster(m,{wide=false,still=false}={}){
   const intro=!SEEN.has(m.id+wide+still); SEEN.add(m.id+wide+still);
@@ -304,8 +316,8 @@ function poster(m,{wide=false,still=false}={}){
   const len=Math.max((A?A.first:"?").length,(B?B.first:"?").length);
   const fs=Math.min(27,155/len), fsw=Math.min(15,92/len);
   const pa=(A&&B)?probA(m.a,m.b):.5;
-  return `<article class="poster ${wide?"wide":""} ${intro?"intro":""}" ${still?"":`data-versus="${m.id}" role="button" tabindex="0"`} aria-label="${esc(fullA)} contra ${esc(fullB)}" style="--fs:${fs}cqw;--fsw:${fsw}cqw">
-    <div class="p-beams" aria-hidden="true"></div><div class="p-flare" aria-hidden="true"></div><div class="p-bg" aria-hidden="true"><span>${esc(A?A.first:"?")}</span><span>${esc(B?B.first:"?")}</span></div>
+  return `<article class="poster ${wide?"wide":""} ${intro?"intro":""}" ${still?"":`data-versus="${m.id}" role="button" tabindex="0"`} aria-label="${esc(fullA)} contra ${esc(fullB)}" style="--fs:${fs}cqw;--fsw:${fsw}cqw;--ca:${A?A.color:"#3E86E8"};--cb:${B?B.color:"#F3C64E"}">
+    <div class="p-beams" aria-hidden="true"></div><div class="p-flare" aria-hidden="true"></div>${smoke(wide)}<div class="p-bg" aria-hidden="true"><span>${esc(A?A.first:"?")}</span><span>${esc(B?B.first:"?")}</span></div>
     ${A?`<div class="p-glow l" style="background:${A.color}"></div>`:""}${B?`<div class="p-glow r" style="background:${B.color}"></div>`:""}
     ${A?`<div class="hero l" style="--c:${A.color}"><img src="${IMG(m.a)}" alt="" decoding="async"></div>`:""}
     ${B?`<div class="hero r" style="--c:${B.color}"><img src="${IMG(m.b)}" alt="" decoding="async"></div>`:""}
@@ -328,8 +340,8 @@ function poster(m,{wide=false,still=false}={}){
 function playerPoster(id){
   const p=P[id], R=standings().byId[id];
   const fs=Math.min(30,160/p.last.length);
-  return `<article class="poster" aria-label="${esc(p.name)}" style="--fs:${fs}cqw">
-    <div class="p-bg" aria-hidden="true"><span>${esc(p.first)}</span><span>${esc(p.last)}</span></div>
+  return `<article class="poster" aria-label="${esc(p.name)}" style="--fs:${fs}cqw;--ca:${p.color};--cb:#F3C64E">
+    ${smoke(true)}<div class="p-bg" aria-hidden="true"><span>${esc(p.first)}</span><span>${esc(p.last)}</span></div>
     <div class="p-beams" aria-hidden="true"></div><div class="p-glow" style="left:22%;background:${p.color}"></div>
     <div class="hero solo" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></div>
     <div class="p-pos l" style="top:4cqw">${R.pos}º<small>${R.pts} pts</small></div>
@@ -399,8 +411,8 @@ function lineup(){
   const faces=order.map((r,i)=>{const d=Math.abs(i-mid); return `<button class="lu-face" data-open-player="${r.id}" style="--c:${P[r.id].color};--d:${d};--i:${i};z-index:${20-Math.round(d*2)}" aria-label="${esc(P[r.id].name)}, ${r.pos}º"><img src="${IMG(r.id)}" alt="" decoding="async"><span>${r.pos}</span></button>`;}).join("");
   const done=FIXTURE.filter(f=>result(getMatch(f.id))).length;
   const when= ph.type==="j"?`Jornada ${J} · quedan ${daysLeft(J)} días`: ph.type==="break"?"Descanso de invierno":"Playoffs";
-  return `<section class="lineup ${first?"first":""}" aria-label="Americana Legends Cup">
-    <div class="lu-beams" aria-hidden="true"></div>
+  return `<section class="lineup ${first?"first":""}" aria-label="Americana Legends Cup" style="--ca:#3E86E8;--cb:#F3C64E">
+    <div class="lu-beams" aria-hidden="true"></div>${smoke(true)}
     <div class="lu-bg" aria-hidden="true">Legends</div>
     <div class="lu-title"><span class="lu-kick">Americana</span><b>Legends Cup</b><span class="vol">Vol. 1</span></div>
     <div class="lu-faces">${faces}</div>
@@ -590,20 +602,26 @@ function vMVP(){
    jugador aparece andando; si no, su foto entra con efecto cine.
    ===================================================================== */
 const WALKOUTS = (CFG.WALKOUTS||[]);
+/* Los walkouts son WebP animados con fondo transparente (img/<id>-walkout.webp).
+   Se descargan una vez y se reinician en cada presentación sin volver a bajarlos. */
+const WALK={};
+function walkBlob(id){ if(!WALKOUTS.includes(id)) return Promise.resolve(null);
+  if(!WALK[id]) WALK[id]=fetch(`img/${id}-walkout.webp`).then(r=>r.ok?r.blob():null).catch(()=>null);
+  return WALK[id]; }
+WALKOUTS.forEach(id=>setTimeout(()=>walkBlob(id),3000));
 let VSX=null;
-function vsMedia(id,side){
-  if(WALKOUTS.includes(id)) return `<video class="vx-img" src="img/${id}-walkout.webm" autoplay muted playsinline preload="auto"></video>`;
-  return `<img class="vx-img" src="${IMG(id)}" alt="" decoding="async">`;
+function vsMedia(id){
+  return `<img class="vx-img" src="${IMG(id)}" alt="" decoding="async" ${WALKOUTS.includes(id)?`data-walk="${id}"`:""}>`;
 }
 function openVersus(id){
   const m=getMatch(id); if(!m.a||!m.b){ openMatch(id); return; }
-  closeModal();
+  closeModal(); document.body.classList.add("mo");
   const st=standings().byId, A=st[m.a], B=st[m.b], pA=P[m.a], pB=P[m.b], E=elo(), r=result(m), live=m.status==="live";
   const h2=A.h2h[m.b]||{w:0,l:0}, pa=probA(m.a,m.b);
   const pct=x=>x.pj?Math.round(x.pg/x.pj*100):0;
   const rows=[
     ["Puntos",A.pts,B.pts,""],["% victorias",pct(A),pct(B),"%"],["Sets ganados",A.sf,B.sf,""],
-    ["Juegos ganados",A.jf,B.jf,""],["Índice MVP",Math.round(E.R[m.a]),Math.round(E.R[m.b]),""],["Victorias entre ellos",h2.w,h2.l,""]];
+    ["Juegos ganados",A.jf,B.jf,""],["Índice MVP",Math.round(E.R[m.a]),Math.round(E.R[m.b]),"",1400],["Victorias entre ellos",h2.w,h2.l,""]];
   const kick=m.playoff?PO_LABEL[m.id]:`Jornada ${m.j} · Partido ${FIXTURE.filter(f=>f.j===m.j).findIndex(f=>f.id===m.id)+1}`;
   const when=m.date?`${fmtDay(m.date)}${m.time?" · "+m.time:""}${m.court?" · "+m.court:""}`:"Fecha por fijar";
   const tick=(`${pA.name} <em>vs</em> ${pB.name} · Americana Legends Cup · `).repeat(5);
@@ -615,12 +633,12 @@ function openVersus(id){
   const el=document.getElementById("modal");
   el.innerHTML=`<div class="vsx" role="dialog" aria-modal="true" aria-label="${esc(pA.name)} contra ${esc(pB.name)}" style="--ca:${pA.color};--cb:${pB.color}">
     <div class="vx-stage">
-      <div class="vx-beams" aria-hidden="true"></div><div class="vx-haze" aria-hidden="true"></div>
+      <div class="vx-beams" aria-hidden="true"></div><div class="vx-haze" aria-hidden="true"></div>${smoke(true,"vx-smoke")}
       <canvas class="vx-fx" aria-hidden="true"></canvas>
       <div class="vx-kick">${esc(kick)}<span>Americana Legends Cup · Vol. 1</span></div>
       ${side(m.a,pA,A,"a")}${side(m.b,pB,B,"b")}
       <div class="vx-slash" aria-hidden="true"><div class="vx-track">${tick}</div></div>
-      <div class="vx-rings" aria-hidden="true"><i></i><i></i></div>
+      <div class="vx-rings" aria-hidden="true"><i></i><i></i></div><div class="vx-puff" aria-hidden="true"></div>${smoke(true,"fog")}
       <div class="vx-vs-glow" aria-hidden="true"></div><div class="vx-vs" aria-hidden="true">VS</div>
       ${(live||r)?`<div class="vx-score num">${live?'<span class="livedot"></span>':""}${r&&r.wo?"WO":esc(scoreText(m))||"0-0"}</div>`:""}
       <div class="vx-flash" aria-hidden="true"></div>
@@ -629,8 +647,11 @@ function openVersus(id){
     <button class="vx-skip" data-vx-skip>Saltar ›</button>
     <section class="vx-tape" aria-label="Comparativa">
       <div class="vx-th"><div class="pl">${av(m.a)}<b>${esc(pA.first)}</b></div><span>Tale of the tape</span><div class="pl r"><b>${esc(pB.first)}</b>${av(m.b)}</div></div>
-      ${rows.map(([k,a,b,u])=>{const t=(a+b)||1;return `<div class="vx-row"><b class="num" data-count="${a}" data-u="${u}">0${u}</b><div class="vx-bars"><span class="ba" style="--w:${a/t*100}%"></span><em>${k}</em><span class="bb" style="--w:${b/t*100}%"></span></div><b class="num" data-count="${b}" data-u="${u}">0${u}</b></div>`;}).join("")}
-      <div class="vx-row form"><span>${formHtml(A.form)||"–"}</span><em>Últimos 5</em><span>${formHtml(B.form)||"–"}</span></div>
+      ${rows.map(([k,a,b,u,base])=>{const va=Math.max(0,a-(base||0)), vb=Math.max(0,b-(base||0)), mx=Math.max(va,vb)||1;
+        return `<div class="vx-row"><b class="num ${a>b?"lead":""}" data-count="${a}" data-u="${u}">0${u}</b>
+          <div class="vx-stat"><em>${k}</em><div class="vx-bars"><span class="trk"><i class="ba" style="--w:${va/mx*100}%"></i></span><span class="trk"><i class="bb" style="--w:${vb/mx*100}%"></i></span></div></div>
+          <b class="num ${b>a?"lead":""}" data-count="${b}" data-u="${u}">0${u}</b></div>`;}).join("")}
+      <div class="vx-row form"><span>${A.form.length?formHtml(A.form):"Sin partidos"}</span><em>Últimos 5</em><span>${B.form.length?formHtml(B.form):"Sin partidos"}</span></div>
       <div class="vx-prob">
         <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" class="trk"/><circle cx="60" cy="60" r="50" class="pa" style="--p:${pa}"/></svg>
         <div><small>Probabilidad según el algoritmo</small><b><span style="color:${pA.color}">${pA.first} ${Math.round(pa*100)}%</span> · <span style="color:${pB.color}">${Math.round(100-pa*100)}% ${pB.first}</span></b><span class="mini">${esc(when)}</span></div>
@@ -639,6 +660,7 @@ function openVersus(id){
     </section>
   </div>`;
   document.body.style.overflow="hidden";
+  el.querySelectorAll("[data-walk]").forEach(img=>walkBlob(img.dataset.walk).then(b=>{ if(b&&img.isConnected){ img.src=URL.createObjectURL(b); img.classList.add("walk"); } }));
   const root=el.querySelector(".vsx"); const lite=document.documentElement.classList.contains("lite");
   if(lite) root.classList.add("lite");
   const fx=lite?{burst(){},stop(){}}:startFx(root);
@@ -689,8 +711,8 @@ function startFx(root){
 /* =====================================================================
    Ventanas
    ===================================================================== */
-function showModal(html){ document.getElementById("modal").innerHTML=`<div class="modal" data-backdrop><div class="sheet" role="dialog" aria-modal="true"><button class="close" data-close aria-label="Cerrar">×</button>${html}</div></div>`; document.body.style.overflow="hidden"; }
-function closeModal(){ closeVersus(); S.modal=null; document.getElementById("modal").innerHTML=""; document.body.style.overflow=""; }
+function showModal(html){ document.body.classList.add("mo"); document.getElementById("modal").innerHTML=`<div class="modal" data-backdrop><div class="sheet" role="dialog" aria-modal="true"><button class="close" data-close aria-label="Cerrar">×</button>${html}</div></div>`; document.body.style.overflow="hidden"; }
+function closeModal(){ closeVersus(); document.body.classList.remove("mo"); S.modal=null; document.getElementById("modal").innerHTML=""; document.body.style.overflow=""; }
 
 function cmpTable(a,b){
   const st=standings().byId, A=st[a], B=st[b], h2=A.h2h[b]||{w:0,l:0}, pa=probA(a,b);
