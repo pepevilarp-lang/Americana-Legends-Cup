@@ -196,7 +196,26 @@ function gateState(st,msg){
   return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><label for="gate-pin">Acceso de jugadores</label>
     <input id="gate-pin" type="password" inputmode="numeric" autocomplete="off" enterkeyhint="go" maxlength="16" placeholder="PIN" aria-describedby="gate-err">
     <button class="btn ball" id="gate-ok">Entrar al estadio</button><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div>
-    <p class="gate-hint">Te lo pedirá una sola vez en este móvil. El PIN te lo da el organizador.</p></div>`;
+    <p class="gate-hint">Te lo pedirá una sola vez en este móvil. El PIN te lo da el organizador.</p>
+    <button class="gate-link" id="gate-diag-btn">¿No te deja entrar? Ver diagnóstico</button><pre class="gate-diag" id="gate-diag"></pre></div>`;
+}
+/* Diagnóstico: distingue "PIN mal" de "reglas sin publicar" o "proyecto equivocado" */
+async function runDiagnostic(){
+  const out=document.getElementById("gate-diag"); if(!out) return; out.classList.add("on"); out.textContent="Comprobando…";
+  const cfg=CFG.FIREBASE||{}, L=[`Proyecto de config.js: ${cfg.projectId||"(sin configurar)"}`];
+  if(!Store.db){ out.textContent=L.join("\n")+"\nSin conexión con Firebase: recarga la página."; return; }
+  const u=firebase.auth().currentUser; L.push(`Sesión anónima: ${u?"sí ("+u.uid.slice(0,6)+"…)":"NO"}`);
+  const t=async f=>{ try{ await f(); return "ok"; }catch(e){ return isPerm(e)?"denegado":String(e.code||e.message||"error"); } };
+  const ping=await t(()=>Store.db.collection("ping").doc("x").get());
+  const pub=await t(()=>Store.db.collection("matches").limit(1).get());
+  L.push(`Reglas nuevas publicadas: ${ping==="ok"?"SÍ":"NO"}`);
+  L.push(`Reglas antiguas (lectura pública): ${pub==="ok"?"SÍ":"NO"}`);
+  let msg;
+  if(ping==="ok") msg="Las reglas nuevas SÍ están publicadas. Entonces el PIN que escribes no coincide con el de las reglas: ábrelas en Firebase y mira la línea «pinCorrecto».";
+  else if(pub==="ok") msg="Hay publicadas las reglas ANTIGUAS. Pega y publica las nuevas (archivo firestore.rules).";
+  else if(ping!=="denegado"||pub!=="denegado") msg=`No se pudo comprobar (${ping}/${pub}). Revisa la conexión.`;
+  else msg="No hay reglas válidas publicadas en este proyecto. Pega y publica firestore.rules en Firestore > Reglas. Comprueba también que el proyecto de arriba es el tuyo.";
+  out.textContent=L.join("\n")+"\n\n"+msg;
 }
 function setGate(st,msg){
   let g=document.getElementById("gate");
@@ -222,9 +241,10 @@ function setGate(st,msg){
       err.textContent=r.msg;
       const pn=g.querySelector(".gate-panel"); if(pn){ pn.classList.remove("shake"); void pn.offsetWidth; pn.classList.add("shake"); }
       if(navigator.vibrate) navigator.vibrate(120);
-      if(GATE_TRIES>=2 && /incorrecto/i.test(r.msg)){ const h=g.querySelector(".gate-hint"); if(h) h.textContent="¿Seguro que es ese? Si sí, el organizador debe revisar en Firebase que existe config > pin con el campo pin (texto) y que las reglas están publicadas."; }
+      if(GATE_TRIES>=2 && /incorrecto/i.test(r.msg)){ const h=g.querySelector(".gate-hint"); if(h) h.textContent="¿Seguro que es ese? Pulsa «Ver diagnóstico» y envíaselo al organizador."; }
     };
     ok.onclick=submit; pin.onkeydown=e=>{ if(e.key==="Enter") submit(); };
+    const db=g.querySelector("#gate-diag-btn"); if(db) db.onclick=runDiagnostic;
     setTimeout(()=>pin.focus(),g.classList.contains("intro")?1900:60);
   }
 }
