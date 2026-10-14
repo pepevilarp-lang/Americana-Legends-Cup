@@ -15,6 +15,9 @@ window.LIGA_CONFIG = {
     appId: "1:424447945192:web:db0f7e1dec86ab94b69c5d"
   },
 
+  // Clave pública de los avisos (no es secreta). La clave privada va en Vercel, nunca aquí.
+  PUSH_KEY: "BCQ4vYCWwMsxwqhbBzkBNHA42AvJpZlhUJJsOhdzRZF3V49cnWI_6IEmE3iXdP3QrWPOom2ijZBCEIcOaQOOimU",
+
   // PIN solo para probar en tu ordenador (localhost). Con Firebase, el PIN está en las reglas de Firestore.
   LOCAL_PIN: "2627",
 
