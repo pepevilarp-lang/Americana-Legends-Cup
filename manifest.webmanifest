@@ -1,0 +1,17 @@
+{
+  "name": "Americana Legends Cup · Vol. 1",
+  "short_name": "Legends Cup",
+  "description": "Liga de tenis entre amigos: livescore, clasificación, estadísticas y pronósticos.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06173F",
+  "theme_color": "#06173F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
