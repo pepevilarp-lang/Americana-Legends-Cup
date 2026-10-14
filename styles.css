@@ -721,3 +721,66 @@ body.locked #view,body.locked header.top,body.locked nav.tabs,body.locked #modal
 .gate-link{display:block;margin:10px auto 0;background:none;border:0;color:var(--ice);text-decoration:underline;font-size:12px;cursor:pointer;padding:4px}
 .gate-diag{display:none;text-align:left;white-space:pre-wrap;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;background:rgba(0,0,0,.55);color:#fff;padding:10px;margin:8px 0 0;border:1px solid rgba(255,255,255,.2)}
 .gate-diag.on{display:block}
+
+/* =================================================================
+   EXTRAS: avisos, registro, compartir, evolución, récords, bienvenida
+   ================================================================= */
+.btn.wa{background:#25D366;border-color:#25D366;color:#04210f}
+a.btn{display:inline-block;text-decoration:none;text-align:center}
+.xt-row{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.xt-row .btn{flex:1 1 150px;padding:9px 10px;font-size:14px}
+.xt-poster-img{display:block;width:100%;height:auto;margin:10px 0;border:2px solid var(--navy)}
+.xt-hist{margin-top:16px;background:#fff;border:1px solid var(--rule);padding:8px 12px}
+.xt-hist summary{cursor:pointer;font-weight:700}
+/* avisos */
+.xt-alerts{margin-top:6px}
+.xt-badge{font-family:var(--body);font-style:normal;font-size:13px;font-weight:700;background:var(--loss);color:#fff;padding:2px 8px;vertical-align:4px}
+.xt-al{background:#fff;border:1px solid var(--rule);border-left:6px solid var(--gold);padding:10px 12px;margin-bottom:8px}
+.xt-al.k-nodate,.xt-al.k-late{border-left-color:var(--loss);background:#FFF7F6}
+.xt-al.k-today,.xt-al.k-tomorrow{border-left-color:var(--win);background:#F3FBF7}
+.xt-al.mine{box-shadow:0 0 0 2px var(--ball) inset}
+.xt-al-top{display:flex;align-items:center;gap:10px}
+.xt-av{display:flex}.xt-av .av+.av{margin-left:-8px}
+.xt-kind{font-size:13px;color:var(--muted);font-weight:600}
+.k-nodate .xt-kind,.k-late .xt-kind{color:var(--loss)}.k-today .xt-kind,.k-tomorrow .xt-kind{color:var(--win)}
+.xt-al-btns{display:flex;gap:8px;margin-top:8px}.xt-al-btns .btn{flex:1;padding:8px;font-size:14px}
+.xt-recent{margin-top:14px}
+/* registro */
+.xt-log{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--rule)}
+.xt-log:last-child{border-bottom:0}
+.xt-lt{font-size:15px;line-height:1.35}
+/* evolución */
+.xt-leg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.xt-leg button{display:flex;align-items:center;gap:6px;border:2px solid var(--rule);background:#fff;padding:3px 10px 3px 4px;font-weight:600;font-size:13px}
+.xt-leg button.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,#fff)}
+/* rivalidades y récords */
+.xt-rivs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.xt-riv{background:#fff;border:1px solid var(--rule);border-top:4px solid var(--sky);padding:10px;cursor:pointer}
+.xt-riv.bad{border-top-color:var(--loss)}.xt-riv.good{border-top-color:var(--win)}
+.xt-riv small{display:block;font-weight:700;color:var(--muted);margin-bottom:6px}
+.xt-riv b{font-family:var(--display);font-style:italic;font-weight:900;font-size:19px}
+.xt-riv span{display:block;font-size:13px;color:var(--muted);margin-top:4px}
+.xt-recs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+.xt-rec{display:flex;align-items:center;gap:12px;background:var(--deep);color:#fff;padding:12px;border-left:5px solid var(--gold)}
+.xt-rec small{display:block;color:var(--ice);font-size:12px}.xt-rec b{font-family:var(--display);font-style:italic;font-weight:900;font-size:22px;line-height:1.05}
+.xt-ri{font-size:26px}.xt-rv{margin-left:auto;font-size:30px;font-weight:900;color:var(--gold)}
+/* bienvenida de dos botones */
+.onb{position:fixed;inset:0;z-index:250;display:grid;place-items:center;padding:16px;background:rgba(2,10,32,.82);overflow-y:auto}
+.onb-card{position:relative;width:min(94vw,420px);text-align:center;padding:26px 18px 14px;color:#fff;
+  background:radial-gradient(90% 50% at 50% 0,#1D4FA8,transparent 70%),linear-gradient(180deg,#0B2A6B,#06173F);border:2px solid var(--gold);box-shadow:0 0 60px rgba(243,198,78,.3);animation:onbin .5s cubic-bezier(.2,.9,.2,1)}
+@keyframes onbin{from{opacity:0;transform:translateY(30px) scale(.96)}}
+.onb-trophy{width:78px;margin:0 auto 4px;filter:drop-shadow(0 0 18px rgba(243,198,78,.6))}.onb-trophy svg{display:block;width:100%}
+.onb-card h2{margin:0;font-size:34px;color:#fff}.onb-sub{color:var(--ice);margin:4px 0 12px}
+.onb-who label{display:block;font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--gold);margin-bottom:6px}
+.onb-faces{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
+.onb-faces button{background:none;border:2px solid transparent;color:#fff;padding:4px 0;font-size:11px;font-weight:600}
+.onb-faces button .av{width:46px;height:46px;margin:0 auto 2px}
+.onb-faces button.on{border-color:var(--ball);background:rgba(227,255,59,.12)}
+.onb-btn{display:block;width:100%;margin-top:10px;font-size:18px;padding:14px;font-weight:800;text-transform:uppercase}
+.onb-btn:disabled{background:#2F8F55;border-color:#2F8F55;color:#fff;opacity:1}
+.onb-help{min-height:1.4em;margin:12px 4px 0;font-size:14px;color:var(--ice);text-align:left}.onb-help b{color:#fff}
+.onb-ico{font-size:18px}
+.exp{margin-left:4px}
+.av{display:inline-block;vertical-align:middle}
+.xt-who{display:block;flex:none}
+.xt-evo{width:100%}.xt-evo svg{width:100%;height:auto;display:block;min-width:0}
