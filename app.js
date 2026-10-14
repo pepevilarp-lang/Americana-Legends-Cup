@@ -361,10 +361,11 @@ function getMatch(id){
 }
 function winnerOf(id){ const d=Store.matches[id]; const r=result(d); if(!r||!d.a) return null; return r.w==="a"?d.a:d.b; }
 
-function standings(onlyIda=false){
-  return cached("st"+onlyIda,()=>{
-    const rows=Object.fromEntries(PLAYERS.map(p=>[p.id,{id:p.id,pj:0,pg:0,pp:0,sf:0,sc:0,jf:0,jc:0,pts:0,tbW:0,tbL:0,stW:0,stL:0,rem:0,bag:0,form:[],h2h:{},res:[]}]));
-    const played=FIXTURE.filter(f=>!onlyIda||f.j<=9).map(f=>getMatch(f.id)).filter(m=>result(m)).sort((x,y)=>sortKey(x)<sortKey(y)?-1:1);
+function standings(lim=false){
+  const maxJ=lim===true?9:(typeof lim==="number"?lim:99);
+  return cached("st"+maxJ,()=>{
+    const rows=Object.fromEntries(PLAYERS.map(p=>[p.id,{id:p.id,pj:0,pg:0,pp:0,sf:0,sc:0,jf:0,jc:0,pts:0,tbW:0,tbL:0,stW:0,stL:0,rem:0,bag:0,bagL:0,form:[],h2h:{},res:[]}]));
+    const played=FIXTURE.filter(f=>f.j<=maxJ).map(f=>getMatch(f.id)).filter(m=>result(m)).sort((x,y)=>sortKey(x)<sortKey(y)?-1:1);
     played.forEach(m=>{
       const r=result(m);
       [["a","b"],["b","a"]].forEach(([me,op])=>{
@@ -377,7 +378,7 @@ function standings(onlyIda=false){
         r.sets.forEach(s=>{
           const mine=me==="a"?s.a:s.b, th=me==="a"?s.b:s.a;
           if(s.st){ mine>th?R.stW++:R.stL++; }
-          else { if(Math.max(s.a,s.b)===7&&Math.min(s.a,s.b)===6){ mine>th?R.tbW++:R.tbL++; } if(mine===6&&th===0) R.bag++; }
+          else { if(Math.max(s.a,s.b)===7&&Math.min(s.a,s.b)===6){ mine>th?R.tbW++:R.tbL++; } if(mine===6&&th===0) R.bag++; if(th===6&&mine===0) R.bagL++; }
         });
         if(!r.wo&&r.sets[0]){ const f=r.sets[0]; if((me==="a"?f.a<f.b:f.b<f.a)&&won) R.rem++; }
         R.res.push(m);
@@ -563,6 +564,7 @@ const TABS=[["hoy","Hoy"],["clasificacion","Clasificación"],["calendario","Cale
 const S={tab:(location.hash||"#hoy").slice(1), inv:false, me:localStorage.getItem("am_me")||"", modal:null, h2a:"alvaro", h2b:"pepe", mvpJ:null};
 if(!TABS.some(t=>t[0]===S.tab)) S.tab="hoy";
 
+const VIEWS={hoy:vHoy,calendario:vCal,clasificacion:vClas,jugadores:vJug,h2h:vH2H,analytics:vAna,mvp:vMVP,pronosticos:vPron,playoffs:vPO};
 let queued=false;
 function schedule(){ if(queued) return; queued=true; requestAnimationFrame(()=>{queued=false; render();}); }
 let lastView="";
@@ -572,7 +574,7 @@ function render(){
     : ph.type==="break"?`<b>Descanso de invierno</b>Vuelve el 1 de febrero`:`<b>Playoffs</b>Mayo 2027`;
   const tabs=TABS.map(([k,l])=>`<button data-tab="${k}" ${S.tab===k?'aria-current="page"':""}>${l}</button>`).join("");
   const tEl=document.getElementById("tabs"); if(tEl.innerHTML!==tabs) tEl.innerHTML=tabs;
-  const html={hoy:vHoy,calendario:vCal,clasificacion:vClas,jugadores:vJug,h2h:vH2H,analytics:vAna,mvp:vMVP,pronosticos:vPron,playoffs:vPO}[S.tab]();
+  const html=(VIEWS[S.tab]||VIEWS.hoy)();
   if(html!==lastView){ document.getElementById("view").innerHTML=html; lastView=html; }   // no se repinta si nada cambió
   const typing=document.activeElement&&document.activeElement.closest&&document.activeElement.closest("#modal input,#modal select");
   if(S.modal&&!typing){ const sc=document.querySelector("#modal .modal"), top=sc?sc.scrollTop:0; S.modal(); const n=document.querySelector("#modal .modal"); if(n) n.scrollTop=top; }
@@ -604,7 +606,7 @@ function vHoy(){
   const score=m=>(st[m.a].pos+st[m.b].pos)+Math.abs(probA(m.a,m.b)-.5)*10-(m.date&&m.date>=today()?3:0);
   const star=pend.slice().sort((x,y)=>score(x)-score(y))[0] || jm.find(m=>result(m));
   const M=mvp();
-  let h=lineup();
+  let h=lineup()+(typeof xAlerts==="function"?xAlerts():"");
   if(live.length) h+=`<h2>En directo</h2><div class="grid2">${live.map(m=>`<div>${poster(m,{wide:live.length===1})}<div style="margin-top:8px">${scoreboard(m)}</div></div>`).join("")}</div>`;
   if(star) h+=`<h2>${live.length?"Próximo gran partido":"El partido de la jornada"}</h2>${poster(star,{wide:true})}`;
   h+=`<h2>Jornada ${J}</h2><p class="sub">Toca un partido para ver la previa, pronosticar o llevar el marcador.</p><div class="mlist">${jm.map(matchRow).join("")}</div>`;
