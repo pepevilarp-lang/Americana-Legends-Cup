@@ -49,5 +49,17 @@ service cloud.firestore {
       allow create, update: if isMember()
         && request.resource.data.v != request.resource.data.c;
     }
+
+    // Registro de cambios: quién metió o corrigió cada resultado y cuándo (solo se puede añadir)
+    match /log/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.keys().hasAll(['t', 'who', 'txt']);
+      allow update, delete: if false;
+    }
+
+    // Móviles que han activado los avisos
+    match /push/{id} {
+      allow read, write: if isMember();
+    }
   }
 }
