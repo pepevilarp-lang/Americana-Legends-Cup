@@ -1,5 +1,5 @@
 /* Servicio de fondo de la app: la hace instalable, la abre rápido y recibe los avisos */
-const CACHE = "legends-cup-v1";
+const CACHE = "legends-cup-v2";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
