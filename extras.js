@@ -686,7 +686,8 @@ async function surveyCreate(id){
   for(const p of [m.a,m.b]){
     const sid=`${id}__${p}`;
     try{
-      await Store.db.collection("surveys").doc(sid).create({matchId:id,playerId:p,status:"pending",t:Date.now()});
+      /* set() sobre un documento que no existe = regla create; si ya existe = regla update, que solo puede usar su dueño */
+      await Store.db.collection("surveys").doc(sid).set({matchId:id,playerId:p,status:"pending",t:Date.now()});
       Push.notify({title:"📝 Encuesta del partido",body:`Cuéntanos cómo fue ${nm(m.a)} – ${nm(m.b)} (${jLabel(m)})`,tag:"survey-"+sid,url:"./#hoy"},{only:[p]});
     }catch(e){ /* ya existía */ }
   }
