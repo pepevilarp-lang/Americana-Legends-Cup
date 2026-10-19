@@ -154,7 +154,12 @@ const Store = {
   async claim(pid){
     const u=firebase.auth().currentUser; if(!u) return;
     try{
-      await this.db.collection("claims").doc(pid).create({uid:u.uid,t:Date.now()});
+      /* Reserva atómica: solo si nadie tiene esa cara (create() no existe en el SDK web de Firestore) */
+      await this.db.runTransaction(async t=>{
+        const ref=this.db.collection("claims").doc(pid), s=await t.get(ref);
+        if(s.exists) throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
+        t.set(ref,{uid:u.uid,t:Date.now()});
+      });
       await this.db.collection("players").doc(u.uid).set({player:pid,t:Date.now()});
     }catch(e){
       const m=String(e.code||e.message||e);
