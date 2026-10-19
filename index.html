@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06173F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Legends Cup">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>window.__bip=null;addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__bip=e;});</script>
+<title>Americana Legends Cup · Vol. 1</title>
+<meta name="description" content="Liga de tenis entre amigos: livescore, clasificación, estadísticas, MVP y pronósticos.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎾</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="logo"><span class="ball" aria-hidden="true"></span><b>Legends Cup<small>Americana · Vol. 1 · 2026–27</small></b></div>
+  <div class="jinfo"><div id="jchip"></div><div class="sync" id="sync"><i></i><span>Conectando…</span></div><button class="exp" id="export">Exportar JSON</button></div>
+</div></header>
+<nav class="tabs" aria-label="Secciones"><div class="tabs-in" id="tabs"></div></nav>
+<main id="view"></main>
+<div id="modal"></div>
+<div id="toast" class="toast hidden" role="status"></div>
+<script src="config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+<script src="extras.js"></script>
+</body>
+</html>
