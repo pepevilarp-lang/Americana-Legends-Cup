@@ -367,7 +367,7 @@ if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostnam
 const Onb={
   html(only){
     const done=isStandalone()||flag("am_installed")==="1", ps=Push.state();
-    const who=only?"":`<div class="onb-who"><label>Toca tu cara</label><div class="onb-faces">${PLAYERS.map(p=>`<button data-x="me" data-id="${p.id}" class="${S.me===p.id?"on":""}" style="--c:${p.color}" aria-label="${esc(p.name)}">${av(p.id).replace('loading="lazy"','loading="eager"')}<span>${p.first}</span></button>`).join("")}</div></div>`;
+    const who=(only||S.me)?"":`<div class="onb-who"><label>Toca tu cara</label><div class="onb-faces">${PLAYERS.map(p=>`<button data-x="me" data-id="${p.id}" class="${S.me===p.id?"on":""}" style="--c:${p.color}" aria-label="${esc(p.name)}">${av(p.id).replace('loading="lazy"','loading="eager"')}<span>${p.first}</span></button>`).join("")}</div></div>`;
     return `<div class="onb" id="onb" role="dialog" aria-modal="true" aria-label="Bienvenida"><div class="onb-card"><div class="onb-trophy">${trophySvg()}</div>
       <h2>${only?"Activa los avisos":"¡Ya estás dentro!"}</h2><p class="onb-sub">${only?"Un toque y te avisamos de partidos en directo y resultados.":"Dos toques y listo."}</p>${who}
       ${only?"":`<button class="btn ball onb-btn" id="onb-install" data-x="install" ${done?"disabled":""}>${done?"✓ App instalada":"📲 Instalar la app"}</button>`}
@@ -458,6 +458,274 @@ document.addEventListener("click",async e=>{
   else if(x==="mymobile") Onb.show(false);
 });
 document.addEventListener("change",e=>{ if(e.target&&e.target.id==="me") Push.syncWho(); });
+
+/* =====================================================================
+   PERFIL DE JUGADOR · radar, ranking en la liga, forma, posición por jornada y comparador
+   ===================================================================== */
+S.pcmp=null; S.pid=null;
+const PF_AXES=[["Victorias","vic"],["Sets","set"],["Juegos","jue"],["Remontadas","rem"],["Tie-breaks","tb"],["Racha","rach"]];
+function pfMetrics(){
+  const by=standings().byId, all=PLAYERS.map(p=>by[p.id]);
+  const mx=f=>Math.max(1,...all.map(f));
+  const pct=(a,b)=>(a+b)?a/(a+b)*100:0;
+  const M=r=>({ vic:r.pj?r.pg/r.pj*100:0, set:pct(r.sf,r.sc), jue:pct(r.jf,r.jc), rem:r.rem/mx(x=>x.rem)*100, tb:pct(r.tbW,r.tbL), rach:r.best/mx(x=>x.best)*100 });
+  return {by,all,M};
+}
+/* posición de un jugador en la liga para una métrica (empates = mismo puesto) */
+function pfRank(all,f,id){ const mine=f(all.find(r=>r.id===id)); return 1+all.filter(r=>f(r)>mine).length; }
+function pfRadar(M,Cm,p,cmpId){
+  const cx=180,cy=160,RR=105,n=6;
+  const pt=(i,v,rad=RR)=>{ const a=-Math.PI/2+i*2*Math.PI/n, r=rad*Math.max(0,Math.min(100,v))/100; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+  const poly=m=>PF_AXES.map(([,k],i)=>pt(i,m[k]).map(x=>x.toFixed(1)).join(",")).join(" ");
+  const rings=[25,50,75,100].map(g=>`<polygon points="${PF_AXES.map((_,i)=>pt(i,g).map(x=>x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="#D3DDEC"/>`).join("");
+  const spokes=PF_AXES.map((_,i)=>{const [x,y]=pt(i,100);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#D3DDEC"/>`;}).join("");
+  const labels=PF_AXES.map(([t],i)=>{const [x,y]=pt(i,100,RR+26);return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="#5B6A85">${t}</text>`;}).join("");
+  const dots=PF_AXES.map(([,k],i)=>{const [x,y]=pt(i,M[k]);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="${p.color}" stroke="#fff" stroke-width="1.5"/>`;}).join("");
+  const cmp=Cm?`<polygon points="${poly(Cm)}" fill="${col(cmpId)}" fill-opacity=".16" stroke="${col(cmpId)}" stroke-width="2.5" stroke-dasharray="7 5"/>`:"";
+  return `<svg class="pf-radar" viewBox="0 0 360 320" role="img" aria-label="Radar de ${esc(p.first)}">${rings}${spokes}${cmp}<polygon points="${poly(M)}" fill="${p.color}" fill-opacity=".38" stroke="${p.color}" stroke-width="3"/>${dots}${labels}</svg>`;
+}
+function playerProfileHtml(id){
+  const {by,all,M}=pfMetrics(), R=by[id], p=P[id], N=all.length, E=elo();
+  const Mi=M(R), cmpId=S.pcmp&&S.pcmp!==id&&P[S.pcmp]?S.pcmp:null, Mc=cmpId?M(by[cmpId]):null;
+  const pj=R.pj, winPct=pj?Math.round(R.pg/pj*100):0;
+  const rk=f=>{ if(!pj) return ""; const r=pfRank(all,f,id); return `<em class="pf-rk ${r<=3?"top":""}">${r}º de ${N}</em>`; };
+  const stat=(v,k,rank="")=>`<div class="pf-stat"><b class="num">${v}</b><span>${k}</span>${rank}</div>`;
+  const stats=[
+    stat(R.pos+"º","Posición",rk(r=>r.pts)),
+    stat(R.pts,"Puntos",rk(r=>r.pts)),
+    stat(winPct+"%","Victorias",rk(r=>r.pj?r.pg/r.pj:0)),
+    stat(`${R.sf}-${R.sc}`,"Sets",rk(r=>r.sf-r.sc)),
+    stat(`${R.jf}-${R.jc}`,"Juegos",rk(r=>r.jf-r.jc)),
+    stat(pj?(R.jf/pj).toFixed(1):"–","Juegos a favor por partido",rk(r=>r.pj?r.jf/r.pj:0)),
+    stat(`${R.tbW}-${R.tbL}`,"Tie-breaks",rk(r=>r.tbW)),
+    stat(`${R.stW}-${R.stL}`,"Super tie-breaks",rk(r=>r.stW)),
+    stat(R.rem,"Remontadas",rk(r=>r.rem)),
+    stat(R.bag,"Roscos (6-0)",rk(r=>r.bag)),
+    stat(R.streak>0?"+"+R.streak:R.streak<0?"−"+(-R.streak):"0","Racha (+ victorias / − derrotas)"),
+    stat(R.best,"Mejor racha",rk(r=>r.best)),
+    stat(E.R[id].toFixed(0),"Índice MVP",rk(r=>E.R[r.id]))
+  ].join("");
+  const myScore=m=>{ if(m.status==="wo") return "WO"; const me=m.a===id?"a":"b"; return (m.sets||[]).map(s=>me==="a"?`${s.a}-${s.b}`:`${s.b}-${s.a}`).join(" · "); };
+  const lastM=R.res.slice(-10);
+  const form=lastM.length?`<div class="pf-form">${lastM.map(m=>{ const r=result(m), me=m.a===id?"a":"b", won=r.w===me, o=m.a===id?m.b:m.a;
+    return `<button class="pf-chip ${won?"W":"L"}" data-open-match="${m.id}" title="${esc(nm(o))} · ${esc(myScore(m))}"><b>${won?"V":"D"}</b><span>${esc(nm(o))}</span><small>${esc(myScore(m))}</small></button>`; }).join("")}</div>`
+    : `<div class="empty">Todavía sin partidos.</div>`;
+  const {maxJ,series}=evoData(), ser=series.find(s=>s.id===id), serC=cmpId?series.find(s=>s.id===cmpId):null;
+  let evo=`<div class="empty">La gráfica aparece con los primeros resultados.</div>`;
+  if(maxJ){
+    const W=600,H=260,pl=40,pr=20,pt=18,pb=34, X=j=>maxJ===1?W/2:pl+(j-1)*(W-pl-pr)/(maxJ-1), Y=q=>pt+(q-1)*(H-pt-pb)/9;
+    let g="";
+    for(let q=1;q<=10;q++) g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(q)}" y2="${Y(q)}" stroke="${q===4?"#3E86E8":"#E3EAF4"}" ${q===4?'stroke-dasharray="5 4"':""}/><text x="${pl-10}" y="${Y(q)+5}" text-anchor="end" font-size="13" font-weight="700" fill="#5B6A85">${q}</text>`;
+    for(let j=1;j<=maxJ;j++) g+=`<text x="${X(j)}" y="${H-10}" text-anchor="middle" font-size="13" font-weight="700" fill="#5B6A85">J${j}</text>`;
+    const line=(s,c,w,dash)=>`<polyline fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" ${dash?'stroke-dasharray="7 5"':""} points="${s.pts.map(x=>`${X(x.j).toFixed(1)},${Y(x.pos).toFixed(1)}`).join(" ")}"/>`;
+    if(serC) g+=line(serC,col(cmpId),3,true);
+    g+=line(ser,p.color,5,false);
+    g+=ser.pts.map(x=>`<circle cx="${X(x.j).toFixed(1)}" cy="${Y(x.pos).toFixed(1)}" r="12" fill="#fff" stroke="${p.color}" stroke-width="3.5"/><text x="${X(x.j).toFixed(1)}" y="${(Y(x.pos)+4.5).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="${p.color}">${x.pos}</text>`).join("");
+    evo=`<svg class="pf-evo" viewBox="0 0 ${W} ${H}" role="img" aria-label="Posición de ${esc(p.first)} por jornadas">${g}</svg>`;
+  }
+  const riv=PLAYERS.filter(x=>x.id!==id).map(x=>({x,h:R.h2h[x.id]||{w:0,l:0}})).filter(o=>o.h.w+o.h.l>0).sort((a,b)=>(b.h.w+b.h.l)-(a.h.w+a.h.l));
+  const rivalTbl=riv.length?`<div class="pf-riv">${riv.map(o=>{ const t=o.h.w+o.h.l, pw=o.h.w/t*100;
+    return `<div class="pf-rrow" data-open-player="${o.x.id}"><div class="pl">${av(o.x.id,"sm")}<span>${esc(o.x.first)}</span></div><div class="pf-rbar"><i style="width:${pw.toFixed(0)}%;background:${p.color}"></i></div><b class="num">${o.h.w}–${o.h.l}</b></div>`; }).join("")}</div>`
+    : `<div class="empty">Aún no ha jugado contra nadie.</div>`;
+  const sel=`<div class="pf-cmp"><label for="pcmp">Comparar con</label><select id="pcmp"><option value="">— nadie —</option>${PLAYERS.filter(x=>x.id!==id).map(x=>`<option value="${x.id}" ${cmpId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>`;
+  const cmpTbl=cmpId?`<table class="cmp pf-cmpt"><tr><td style="color:${p.color}">${esc(p.first)}</td><td class="k">Radar</td><td style="color:${col(cmpId)}">${esc(P[cmpId].first)}</td></tr>${PF_AXES.map(([t,k])=>`<tr><td class="${Mi[k]>=Mc[k]?"better":""}">${Math.round(Mi[k])}</td><td class="k">${t}</td><td class="${Mc[k]>Mi[k]?"better":""}">${Math.round(Mc[k])}</td></tr>`).join("")}</table>`:"";
+  const bio=(p.nick||p.bio)?`<div class="bio" style="--c:${p.color}">${p.nick?`<b>“${esc(p.nick)}”</b>`:""}${p.style?`<span>${esc(p.style)}</span>`:""}${p.bio?`<p>${esc(p.bio)}</p>`:""}</div>`:"";
+  return bio
+    +`<h3 class="pf-h">Números <small>(puesto en la liga entre paréntesis)</small></h3><div class="pf-stats">${stats}</div>`
+    +`<div class="pf-two"><div><h3 class="pf-h">Perfil</h3><div class="panel pf-radarbox">${pfRadar(Mi,Mc,p,cmpId)}<div class="pf-legend"><i style="background:${p.color}"></i>${esc(p.first)}${cmpId?` <i class="dash" style="border-color:${col(cmpId)}"></i>${esc(P[cmpId].first)}`:""}</div></div></div>`
+    +`<div>${sel}${cmpTbl}<h3 class="pf-h">Últimos 10</h3>${form}</div></div>`
+    +`<h3 class="pf-h">Posición en cada jornada</h3><div class="panel">${evo}</div>`
+    +`<h3 class="pf-h">Contra cada rival</h3>${rivalTbl}`
+    +rivalryHtml(id)
+    +`<h3 class="pf-h">Resultados</h3>${R.res.length?`<div class="mlist">${R.res.slice().reverse().map(matchRow).join("")}</div>`:`<div class="empty">Todavía sin partidos jugados.</div>`}`;
+}
+window.openPlayer=function(id){
+  S.pid=id; S.modal=()=>window.openPlayer(id);
+  const sc=document.querySelector("#modal .modal"), top=sc?sc.scrollTop:0;
+  showModal(playerPoster(id)+`<div class="sheet-body">${playerProfileHtml(id)}</div>`);
+  const n=document.querySelector("#modal .modal"); if(n) n.scrollTop=top;
+};
+document.addEventListener("change",e=>{ if(e.target&&e.target.id==="pcmp"){ S.pcmp=e.target.value||null; window.openPlayer(S.pid); } });
+
+/* =====================================================================
+   AVISOS OBLIGATORIOS · la app no sigue sin avisos activados
+   ===================================================================== */
+window.pushOk=async function(){
+  if(!Push.supported()||!CFG.PUSH_KEY) return false;
+  if(Notification.permission!=="granted") return false;
+  if(flag("am_push")) return true;
+  const r=await Push.enable(); return !!r.ok;
+};
+window.pushEnableGate=async function(btn){
+  btn.disabled=true; btn.textContent="Activando…";
+  const r=await Push.enable();
+  if(r.ok){ await Store.afterLogin(); return; }
+  btn.disabled=false; btn.textContent="🔔 Activar avisos";
+  const h=document.getElementById("gate-push-help"); if(!h) return;
+  h.textContent = r.reason==="denied" ? "Has bloqueado los avisos. Actívalos en los ajustes del navegador o del móvil para esta web y vuelve a pulsar."
+    : r.reason==="rules" ? "Falta publicar las reglas de Firebase (firestore.rules)."
+    : r.reason==="nokey" ? "Los avisos todavía no están configurados en la web. Díselo al organizador."
+    : r.reason==="unsupported" ? "Este navegador no permite avisos. Usa Chrome o instala la app."
+    : "No se pudieron activar ("+(r.detail||r.reason)+"). Inténtalo de nuevo.";
+};
+
+/* =====================================================================
+   ENCUESTA POSTPARTIDO · una por jugador y partido, privada, obligatoria al abrir la app
+   ===================================================================== */
+const SV={
+  scale5perf:["Muy malo","Malo","Normal","Bueno","Muy bueno"],
+  golpes:[["saque","Saque"],["derecha","Derecha"],["reves","Revés"],["volea","Volea"],["globo","Globo"],["remate","Remate"],["resto","Resto"]],
+  pista:["Muy lenta","Lenta","En condiciones normales","Rápida","Muy rápida","Con mucha tierra suelta","Con poca tierra / pista dura","Irregular o con baches"],
+  clima:["Perfectas","Calor intenso","Frío","Viento ligero","Mucho viento","Humedad alta","Llovizna","Partido después de lluvia / pista pesada","Mala visibilidad"],
+  fisico:["Muy mal","Mal","Normal","Bien","Muy bien"],
+  deport:["Nada","Poco","Normal","Bastante","Total"],
+  refl:["Nada","Poco","Más o menos","Bastante","Totalmente"],
+  factor:["Saque","Consistencia","Físico","Mentalidad","Errores no forzados","Otro"]
+};
+const SV_STEPS=[
+  {key:"q1",title:"¿Cómo valorarías tu rendimiento?",opts:SV.scale5perf},
+  {key:"q2",title:"¿Cómo valorarías el rendimiento de tu rival?",opts:SV.scale5perf},
+  {key:"q3",title:"Golpes del partido",golpes:true},
+  {key:"q4",title:"¿Cómo estaba la pista?",opts:SV.pista},
+  {key:"q5",title:"¿Cómo fueron las condiciones meteorológicas?",opts:SV.clima},
+  {key:"q6",title:"¿Cómo te encontraste físicamente?",opts:SV.fisico},
+  {key:"q7",title:"¿Hubo deportividad durante el partido?",opts:SV.deport},
+  {key:"q8",title:"¿El resultado refleja lo ocurrido en pista?",opts:SV.refl},
+  {key:"q9",title:"¿Cuál fue el factor decisivo?",opts:SV.factor},
+  {key:"q10",title:"Comentario opcional",comment:true}
+];
+
+let SV_RUN=null;
+function runSurvey(list){
+  if(SV_RUN) return;
+  const ov=document.createElement("div"); ov.id="survey"; ov.className="sv"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Encuesta del partido");
+  document.body.appendChild(ov); document.body.classList.add("locked");
+  SV_RUN={list,idx:0,ans:{},step:0,ov};
+  svRender();
+}
+function svCurrent(){ return SV_RUN.list[SV_RUN.idx]; }
+function svMatch(){ const d=svCurrent(); return getMatch(d.matchId); }
+function svSide(){ const d=svCurrent(); const m=svMatch(); const rival=d.playerId===m.a?m.b:m.a; return {m,rival}; }
+function svValid(step){
+  const s=SV_STEPS[step]; const a=SV_RUN.ans;
+  if(s.golpes) return !!(a.q3a&&a.q3b);
+  if(s.comment) return true;
+  return !!a[s.key];
+}
+function svRender(){
+  const {ov}=SV_RUN, s=SV_STEPS[SV_RUN.step], n=SV_STEPS.length, pct=(SV_RUN.step+1)/n*100;
+  const {m,rival}=svSide(), total=SV_RUN.list.length, left=SV_RUN.idx+1;
+  let body="";
+  if(s.golpes){
+    body=`<div class="sv-group"><h4>¿Con qué golpe jugaste con más confianza?</h4><div class="sv-opts">${SV.golpes.map(([k,t])=>`<button class="sv-o ${SV_RUN.ans.q3a===t?"on":""}" data-sv="q3a" data-v="${t}">${t}</button>`).join("")}</div></div>
+      <div class="sv-group"><h4>¿Con cuál jugaste con menos confianza?</h4><div class="sv-opts">${SV.golpes.map(([k,t])=>`<button class="sv-o ${SV_RUN.ans.q3b===t?"on":""}" data-sv="q3b" data-v="${t}">${t}</button>`).join("")}</div></div>`;
+  } else if(s.comment){
+    body=`<textarea id="sv-com" maxlength="300" placeholder="Opcional. Lo que quieras decir del partido (máx. 300 caracteres)">${esc(SV_RUN.ans.q10||"")}</textarea><div class="sv-count"><span id="sv-cc">${(SV_RUN.ans.q10||"").length}</span>/300</div>`;
+  } else {
+    body=`<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${SV_RUN.ans[s.key]===t?"on":""}" data-sv="${s.key}" data-v="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
+  }
+  const last=SV_RUN.step===n-1, ok=svValid(SV_RUN.step);
+  ov.innerHTML=`<div class="sv-box">
+    <div class="sv-top"><span class="sv-tag">📝 Encuesta · ${esc(jLabel(m))} · ${esc(nm(m.a))} – ${esc(nm(m.b))}</span>${total>1?`<span class="sv-tag">${left}/${total}</span>`:""}</div>
+    <div class="sv-bar"><i style="width:${pct}%"></i></div>
+    <div class="sv-step">Paso ${SV_RUN.step+1} de ${n}</div>
+    <h3 class="sv-q">${esc(s.title)}</h3>
+    ${s.golpes||s.comment?"":`<p class="sv-sub">${s.key==="q2"?`Tu rival: ${esc(nm(rival))}`:""}</p>`}
+    <div class="sv-body">${body}</div>
+    <div class="sv-nav">
+      ${SV_RUN.step>0?`<button class="btn ghost" data-sv-nav="back">← Atrás</button>`:"<span></span>"}
+      ${last?`<button class="btn ball" data-sv-nav="send" ${ok?"":"disabled"}>Enviar encuesta</button>`
+        :`<button class="btn ball" data-sv-nav="next" ${ok?"":"disabled"}>Siguiente →</button>`}
+    </div>
+    <p class="sv-note">Tus respuestas son privadas: solo las ve el organizador, en cifras agregadas.</p>
+  </div>`;
+}
+document.addEventListener("click",async e=>{
+  if(!SV_RUN) return;
+  const o=e.target.closest("[data-sv]"), nav=e.target.closest("[data-sv-nav]");
+  if(o){
+    const k=o.dataset.sv, v=o.dataset.v;
+    SV_RUN.ans[k]=v; svRender(); return;
+  }
+  if(!nav) return;
+  if(nav.dataset.svNav==="back"){ SV_RUN.step--; svRender(); return; }
+  if(nav.dataset.svNav==="next"){ SV_RUN.step++; svRender(); return; }
+  if(nav.dataset.svNav==="send"){ nav.disabled=true; nav.textContent="Enviando…"; await svSubmit(); }
+});
+document.addEventListener("input",e=>{
+  if(SV_RUN&&e.target&&e.target.id==="sv-com"){ SV_RUN.ans.q10=e.target.value.slice(0,300); const c=document.getElementById("sv-cc"); if(c) c.textContent=SV_RUN.ans.q10.length; }
+});
+async function svSubmit(){
+  const d=svCurrent(), a=SV_RUN.ans, answers={
+    q1:a.q1,q2:a.q2,q3_confianza:a.q3a,q3_menos_confianza:a.q3b,q4:a.q4,q5:a.q5,q6:a.q6,q7:a.q7,q8:a.q8,q9:a.q9,comentario:(a.q10||"").slice(0,300)
+  };
+  try{
+    await Store.db.collection("surveys").doc(d.id).update({status:"completed",answers,sentAt:Date.now()});
+  }catch(err){
+    console.error(err); toast("No se pudo enviar. Revisa la conexión y pulsa otra vez.");
+    const b=document.querySelector("[data-sv-nav='send']"); if(b){ b.disabled=false; b.textContent="Enviar encuesta"; }
+    return;
+  }
+  SV_RUN.idx++; SV_RUN.step=0; SV_RUN.ans={};
+  if(SV_RUN.idx<SV_RUN.list.length){ svRender(); toast("¡Enviada! Queda otra encuesta"); return; }
+  SV_RUN.ov.remove(); SV_RUN=null; document.body.classList.remove("locked"); render(); toast("¡Gracias! Encuestas completadas");
+}
+/* Al abrir la app: solo las pendientes (no interrumpe mientras se juega) */
+async function surveyCheck(){
+  if(!Store.db||!S.me||!Store.member||SV_RUN) return;
+  try{
+    const snap=await Store.db.collection("surveys").where("playerId","==",S.me).where("status","==","pending").get();
+    const list=snap.docs.map(x=>({id:x.id,...x.data()})).sort((x,y)=>(x.t||0)-(y.t||0));
+    if(list.length) runSurvey(list);
+  }catch(e){ console.error(e); }
+}
+/* Al guardar un resultado: se crean las dos encuestas (create falla si ya existían) */
+async function surveyCreate(id){
+  if(!Store.db) return;
+  const m=getMatch(id); if(!(m.a&&m.b)||!result(m)||result(m).wo) return;
+  for(const p of [m.a,m.b]){
+    const sid=`${id}__${p}`;
+    try{
+      await Store.db.collection("surveys").doc(sid).create({matchId:id,playerId:p,status:"pending",t:Date.now()});
+      Push.notify({title:"📝 Encuesta del partido",body:`Cuéntanos cómo fue ${nm(m.a)} – ${nm(m.b)} (${jLabel(m)})`,tag:"survey-"+sid,url:"./#hoy"},{only:[p]});
+    }catch(e){ /* ya existía */ }
+  }
+}
+const _afterSave=afterSave;
+afterSave=function(id,prev,next){ _afterSave(id,prev,next); surveyCreate(id); };
+
+/* Al entrar: se mira si hay encuestas pendientes */
+const _listen2=Store.listen;
+Store.listen=function(){ const was=this.listening; _listen2.call(this); if(!was) setTimeout(surveyCheck,900); };
+
+/* =====================================================================
+   VISTA DEL ORGANIZADOR · solo cifras agregadas (las reglas impiden leer las respuestas individuales a los demás)
+   ===================================================================== */
+window.onAdmin=function(){
+  if(TABS.some(t=>t[0]==="encuestas")) return;
+  TABS.push(["encuestas","Encuestas"]); VIEWS.encuestas=vEncuestas; schedule();
+};
+let ENC_CACHE=null;
+async function loadSurveyStats(){
+  const snap=await Store.db.collection("surveys").get();
+  ENC_CACHE=snap.docs.map(x=>({id:x.id,...x.data()}));
+  schedule();
+}
+function vEncuestas(){
+  if(!Store.isAdmin) return `<div class="empty">Solo para el organizador.</div>`;
+  if(ENC_CACHE===null){ loadSurveyStats().catch(e=>{ ENC_CACHE=[]; console.error(e); }); return `<h2>Encuestas</h2><div class="empty">Cargando…</div>`; }
+  const all=ENC_CACHE, done=all.filter(x=>x.status==="completed"), pend=all.filter(x=>x.status==="pending");
+  const bars=(title,opts,key)=>{ const c={}; done.forEach(x=>{ const v=x.answers&&x.answers[key]; if(v) c[v]=(c[v]||0)+1; }); const mx=Math.max(1,...Object.values(c));
+    return `<div class="panel xt-agg"><h3>${title}</h3>${opts.map(o=>{const n=c[o]||0; return `<div class="vbar"><span>${esc(o)}</span><div class="vtrack"><span style="width:${n/mx*100}%;background:var(--sky)"></span></div><b class="num">${n}</b></div>`;}).join("")}</div>`; };
+  const avg=key=>{ const map={"Muy malo":1,"Malo":2,"Normal":3,"Bueno":4,"Muy bueno":5}; const v=done.map(x=>map[x.answers&&x.answers[key]]).filter(Boolean); return v.length?(v.reduce((s,n)=>s+n,0)/v.length).toFixed(1):"–"; };
+  const byMatch=Object.values(all.reduce((acc,x)=>{ (acc[x.matchId]=acc[x.matchId]||{id:x.matchId,c:0,n:0}); acc[x.matchId].n++; if(x.status==="completed") acc[x.matchId].c++; return acc; },{}));
+  return `<h2>Encuestas</h2><p class="sub">Solo cifras agregadas. Las respuestas individuales no se muestran a nadie.</p>
+    <div class="kpis"><div class="kpi"><small>Completadas</small><b>${done.length}</b></div><div class="kpi"><small>Pendientes</small><b>${pend.length}</b></div>
+    <div class="kpi good"><small>Rendimiento propio (media)</small><b>${avg("q1")}/5</b></div><div class="kpi sky"><small>Rendimiento del rival (media)</small><b>${avg("q2")}/5</b></div></div>
+    <div class="grid2" style="margin-top:14px">${bars("Pista",SV.pista,"q4")}${bars("Clima",SV.clima,"q5")}${bars("Físico",SV.fisico,"q6")}${bars("Deportividad",SV.deport,"q7")}${bars("¿Refleja el resultado lo ocurrido?",SV.refl,"q8")}${bars("Factor decisivo",SV.factor,"q9")}
+    ${bars("Golpe con más confianza",SV.golpes.map(g=>g[1]),"q3_confianza")}${bars("Golpe con menos confianza",SV.golpes.map(g=>g[1]),"q3_menos_confianza")}</div>
+    <h3 class="pf-h">Por partido</h3><div class="panel">${byMatch.length?byMatch.map(r=>{const m=getMatch(r.id); return `<div class="tline"><span>${esc(nm(m.a))} – ${esc(nm(m.b))} · ${esc(jLabel(m))}</span><b class="num">${r.c}/${r.n}</b></div>`;}).join(""):`<div class="empty">Aún no hay encuestas.</div>`}</div>`;
+}
 
 window.Features={Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushFor,daysLeftAt};
 schedule();
