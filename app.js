@@ -102,19 +102,68 @@ const Store = {
     if(!window.firebase){ setGate("error","No se pudo cargar Firebase. Revisa la conexión y recarga la página."); return; }
     try{
       firebase.initializeApp(CFG.FIREBASE);
-      await firebase.auth().signInAnonymously();
       this.db=firebase.firestore();
+      await firebase.auth().getRedirectResult().catch(e=>console.error(e));
     }catch(e){
       console.error(e); const c=String(e.code||e.message||e);
       setSync(false,"Sin conexión con Firebase");
-      setGate("error", /operation-not-allowed|admin-restricted/i.test(c) ? "Falta activar el acceso Anónimo: Firebase > Authentication > Método de acceso > Anónimo."
-        : /api-key|invalid-api|configuration/i.test(c) ? "La configuración de Firebase en config.js no es válida (revisa apiKey y projectId)."
+      setGate("error", /api-key|invalid-api|configuration/i.test(c) ? "La configuración de Firebase en config.js no es válida (revisa apiKey y projectId)."
         : `No se pudo conectar con Firebase (${c}). Revisa la conexión y reintenta.`);
       return;
     }
-    /* Si ya metió el PIN en este móvil, entra directo; si el acceso no es válido, las reglas lo rechazan y se vuelve a pedir */
+    const user=await new Promise(res=>{ const un=firebase.auth().onAuthStateChanged(u=>{ if(un) un(); res(u); }); });
+    if(!user){ setGate("login"); return; }
+    await this.afterLogin();
+  },
+  /* Orden obligatorio: cuenta de Google -> elegir cara (una vez) -> avisos push -> PIN de la liga -> app */
+  async afterLogin(){
+    const u=firebase.auth().currentUser; if(!u){ setGate("login"); return; }
+    setGate("loading","Comprobando tu cuenta…");
+    try{
+      const p=await this.db.collection("players").doc(u.uid).get();
+      if(!p.exists){ await this.showClaim(); return; }
+      this.myPlayer=p.data().player; S.me=this.myPlayer; localStorage.setItem("am_me",S.me);
+      const adm=await this.db.collection("admins").doc(u.uid).get().catch(()=>null);
+      this.isAdmin=!!(adm&&adm.exists); if(this.isAdmin&&window.onAdmin) window.onAdmin();
+    }catch(e){
+      console.error(e);
+      setGate("error", isPerm(e) ? "Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas." : "No se pudo leer tu cuenta. Revisa la conexión y reintenta.");
+      return;
+    }
+    if(window.pushOk && !(await window.pushOk())){ setGate("push"); return; }
     if(localStorage.getItem("am_ok")==="1"){ this.member=true; this.listen(); }
     else setGate("pin");
+  },
+  async showClaim(msg){
+    let taken=new Set();
+    try{ const s=await this.db.collection("claims").get(); taken=new Set(s.docs.map(d=>d.id)); }catch(e){ console.error(e); }
+    this.taken=taken; setGate("claim",msg||"");
+  },
+  loginGoogle(btn){
+    const prov=new firebase.auth.GoogleAuthProvider(); prov.setCustomParameters({prompt:"select_account"});
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+    btn.disabled=true; btn.textContent="Abriendo Google…";
+    const fail=e=>{ btn.disabled=false; btn.textContent="Entrar con Google"; const err=document.getElementById("gate-err"); if(err) err.textContent="No se pudo entrar con Google: "+(e&&(e.message||e.code)||""); };
+    if(ios||standalone){ firebase.auth().signInWithRedirect(prov).catch(fail); return; }
+    firebase.auth().signInWithPopup(prov).then(()=>this.afterLogin()).catch(e=>{
+      if(/popup/i.test(String(e&&e.code||""))) return firebase.auth().signInWithRedirect(prov);
+      fail(e);
+    });
+  },
+  /* Cada cara es de una sola persona: se reserva con create() (falla si ya la tiene otro) */
+  async claim(pid){
+    const u=firebase.auth().currentUser; if(!u) return;
+    try{
+      await this.db.collection("claims").doc(pid).create({uid:u.uid,t:Date.now()});
+      await this.db.collection("players").doc(u.uid).set({player:pid,t:Date.now()});
+    }catch(e){
+      const m=String(e.code||e.message||e);
+      if(/already-exists|already exists|ALREADY_EXISTS/i.test(m)) return this.showClaim("Esa cara ya la ha elegido otra persona. Elige otra.");
+      if(isPerm(e)) return setGate("error","Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas.");
+      return setGate("error","No se pudo guardar tu jugador ("+m+").");
+    }
+    this.myPlayer=pid; S.me=pid; localStorage.setItem("am_me",pid);
+    await this.afterLogin();
   },
   listen(){
     if(this.listening) return; this.listening=true; this.first=false;
@@ -213,6 +262,12 @@ function gateHead(){
     <span class="gate-t"><span class="w w1">Legends</span> <span class="w w2">Cup</span></span><span class="gate-v">Vol. 1 · 2026–27</span>`;
 }
 function gateState(st,msg){
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if(st==="login") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Para entrar, inicia sesión con tu cuenta de Google.</p><button class="btn ball" id="gate-google">Entrar con Google</button><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div><p class="gate-hint">Solo se pide una vez. Tu cuenta queda ligada a tu jugador.</p></div>`;
+  if(st==="claim") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Elige tu cara. Solo se hace una vez y queda ligada a tu cuenta.</p><div class="gate-claims">${PLAYERS.map(p=>{const taken=Store.taken&&Store.taken.has(p.id); return `<button class="gc" data-claim="${p.id}" ${taken?"disabled":""} style="--c:${p.color}"><span class="av" style="--c:${p.color}"><img src="${IMG(p.id)}" alt=""></span><span>${esc(p.first)}</span>${taken?"<em>ocupada</em>":""}</button>`;}).join("")}</div><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div></div>`;
+  if(st==="push") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Los avisos son obligatorios: te avisamos de partidos en directo, resultados y encuestas.</p>${
+      ios&&!standalone ? `<div class="gate-help"><b>En iPhone:</b> pulsa <b>Compartir</b> ⬆️ de Safari y elige <b>«Añadir a pantalla de inicio»</b>. Luego abre la app desde su icono.</div><button class="btn ball" id="gate-reload">Ya la he instalado</button>`
+      : `<button class="btn ball" id="gate-push">🔔 Activar avisos</button>`}<div class="gate-err" id="gate-push-help" role="alert">${esc(msg||"")}</div></div>`;
   if(st==="loading") return `<div class="gate-bar"><i></i></div><p class="gate-load">${esc(msg||"Preparando el estadio…")}</p>`;
   if(st==="error") return `<div class="gate-panel"><div class="gate-err" role="alert">${esc(msg)}</div><button class="btn ball" id="gate-retry">Reintentar</button></div>`;
   return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><label for="gate-pin">Acceso de jugadores</label>
@@ -252,6 +307,10 @@ function setGate(st,msg){
   if(st==="pin"){ g.classList.remove("unlocking","leaving","burst"); delete g.dataset.leaving; GATE_T0=0; }
   g.querySelector(".gate-state").innerHTML=gateState(st,msg);
   const retry=g.querySelector("#gate-retry"); if(retry) retry.onclick=()=>location.reload();
+  const gg=g.querySelector("#gate-google"); if(gg) gg.onclick=()=>Store.loginGoogle(gg);
+  g.querySelectorAll("[data-claim]").forEach(b=>b.onclick=()=>{ b.disabled=true; Store.claim(b.dataset.claim); });
+  const gp=g.querySelector("#gate-push"); if(gp) gp.onclick=()=>window.pushEnableGate&&window.pushEnableGate(gp);
+  const gr=g.querySelector("#gate-reload"); if(gr) gr.onclick=()=>location.reload();
   const pin=g.querySelector("#gate-pin"), ok=g.querySelector("#gate-ok"), err=g.querySelector("#gate-err");
   if(pin&&ok){
     const submit=async()=>{
@@ -648,7 +707,7 @@ function vPron(){
   const open=[...FIXTURE.filter(f=>f.j===J||f.j===J+1).map(f=>getMatch(f.id)),...PLAYOFF_IDS.map(getMatch)].filter(m=>m.a&&m.b&&!result(m)&&m.status!=="live");
   const rank=predRanking();
   return `<h2>Pronósticos</h2><p class="sub">Elige quién gana y por cuánto antes de que empiece el partido. Acertar el ganador da 1 punto; acertar además el resultado (2-0 o 2-1), 3 puntos.</p>
-  <div class="panel"><label for="me">¿Quién eres?</label><select id="me"><option value="">Elige tu nombre</option>${PLAYERS.map(p=>`<option value="${p.id}" ${S.me===p.id?"selected":""}>${p.name}</option>`).join("")}</select></div>
+  <div class="panel"><label for="me">¿Quién eres?</label><select id="me" ${Store.myPlayer?"disabled":""}><option value="">Elige tu nombre</option>${PLAYERS.map(p=>`<option value="${p.id}" ${S.me===p.id?"selected":""}>${p.name}</option>`).join("")}</select></div>
   <div class="grid2" style="margin-top:14px"><div><h3>Por pronosticar</h3>${open.length?open.map(predCard).join(""):`<div class="empty">No hay partidos abiertos ahora mismo.</div>`}</div>
   <div><h3>Ranking de pitonisos</h3>${rank.length?`<div class="tblwrap"><table><thead><tr><th>#</th><th style="text-align:left">Jugador</th><th>Aciertos</th><th>Exactos</th><th>PTS</th></tr></thead><tbody>${rank.map((r,i)=>`<tr><td class="pos">${i+1}</td><td class="name"><div class="pl">${av(r.v,"sm")}<span>${P[r.v].first}</span></div></td><td>${r.hits}/${r.n}</td><td>${r.exact}</td><td class="pts">${r.pts}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">Aún no hay pronósticos resueltos.</div>`}</div></div>`;
 }
@@ -767,7 +826,7 @@ function vMVP(){
   const ms=FIXTURE.filter(f=>f.j===J).map(f=>getMatch(f.id));
   return `<h2>Votación MVP</h2><p class="sub">Cada jugador vota al mejor de la jornada (no vale votarse a uno mismo). Se puede cambiar el voto cuando quieras.</p>
   <div class="chips" role="group" aria-label="Jornada">${Array.from({length:18},(_,i)=>i+1).map(j=>`<button data-mvpj="${j}" aria-pressed="${j===J}">J${j}</button>`).join("")}</div>
-  <div class="panel" style="margin-bottom:14px"><label for="me">¿Quién eres?</label><select id="me"><option value="">Elige tu nombre</option>${PLAYERS.map(p=>`<option value="${p.id}" ${S.me===p.id?"selected":""}>${p.name}</option>`).join("")}</select></div>
+  <div class="panel" style="margin-bottom:14px"><label for="me">¿Quién eres?</label><select id="me" ${Store.myPlayer?"disabled":""}><option value="">Elige tu nombre</option>${PLAYERS.map(p=>`<option value="${p.id}" ${S.me===p.id?"selected":""}>${p.name}</option>`).join("")}</select></div>
   <div class="grid2"><div><h3>Vota al MVP de la jornada ${J}</h3><div class="vgrid">${PLAYERS.map(p=>`<button class="vcard ${mine&&mine.c===p.id?"on":""}" data-vote="${p.id}" style="--c:${p.color}" ${p.id===S.me?"disabled":""}><span class="cimg"><img src="${IMG(p.id)}" alt="" loading="lazy"></span><b>${p.first}</b><small>${tally[p.id]||0} voto${(tally[p.id]||0)===1?"":"s"}</small></button>`).join("")}</div>
    <h3 style="margin-top:16px">Partidos de la jornada ${J}</h3><div class="mlist">${ms.map(matchRow).join("")}</div></div>
   <div><h3>Recuento · ${votes.length} voto${votes.length===1?"":"s"}</h3><div class="panel">${ranking.map(r=>`<div class="vbar"><div class="pl">${av(r.id,"sm")}<span>${P[r.id].first}</span></div><div class="vtrack"><span style="width:${max?r.n/max*100:0}%;background:${col(r.id)}"></span></div><b class="num">${r.n}</b></div>`).join("")}</div>
