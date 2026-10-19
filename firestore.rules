@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================================
+    //  PIN DE LA LIGA  ->  cámbialo aquí entre las comillas
+    // ==========================================================
+    function pinCorrecto(p) {
+      return p == '1234';
+    }
+
+    // Sesión iniciada con Google
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Jugador ligado a esta cuenta (cada cuenta tiene una cara)
+    function myPlayer() {
+      return get(/databases/$(database)/documents/players/$(request.auth.uid)).data.player;
+    }
+
+    // Ha metido el PIN de la liga en este móvil
+    function isMember() {
+      return signedIn() && exists(/databases/$(database)/documents/editors/$(request.auth.uid));
+    }
+
+    // Organizador: su uid se añade a mano en la consola (desde la web no se puede)
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /ping/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /config/{doc} {
+      allow read, write: if false;
+    }
+
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Cada cara es de una sola cuenta: create() falla si ya está reservada
+    match /claims/{pid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // La cuenta solo puede ligarse a la cara que acaba de reservar
+    match /players/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && get(/databases/$(database)/documents/claims/$(request.resource.data.player)).data.uid == uid;
+      allow update, delete: if false;
+    }
+
+    // PIN correcto por móvil
+    match /editors/{uid} {
+      allow read, delete: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid && pinCorrecto(request.resource.data.pin);
+    }
+
+    // Partidos: se pueden ver y tocar con el PIN
+    match /matches/{id} {
+      allow read, write: if isMember();
+    }
+
+    // Pronósticos y votos: siempre a nombre de tu propio jugador
+    match /preds/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.v == myPlayer()
+        && request.resource.data.w in ['a', 'b']
+        && request.resource.data.r in ['20', '21'];
+    }
+    match /votes/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.v == myPlayer()
+        && request.resource.data.v != request.resource.data.c;
+    }
+
+    // Registro de cambios: solo se añade, y a tu nombre
+    match /log/{id} {
+      allow read: if isMember();
+      allow create: if isMember()
+        && request.resource.data.keys().hasAll(['t', 'who', 'txt'])
+        && request.resource.data.who == myPlayer();
+      allow update, delete: if false;
+    }
+
+    // Móviles con avisos activados
+    // Cada cuenta registra SU móvil (se hace antes del PIN); solo los miembros leen la lista
+    match /push/{id} {
+      allow read, delete: if isMember();
+      allow create, update: if signedIn() && request.resource.data.who == myPlayer();
+    }
+
+    // ENCUESTAS: privadas. Solo las lee su jugador y el organizador (en agregado).
+    match /surveys/{sid} {
+      allow read: if isAdmin() || (signedIn() && resource.data.playerId == myPlayer());
+      allow create: if isMember()
+        && request.resource.data.status == 'pending'
+        && sid == request.resource.data.matchId + '__' + request.resource.data.playerId;
+      allow update: if signedIn()
+        && resource.data.playerId == myPlayer()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'completed'
+        && request.resource.data.playerId == resource.data.playerId
+        && request.resource.data.matchId == resource.data.matchId
+        && (!('comentario' in request.resource.data.answers) || request.resource.data.answers.comentario.size() <= 300);
+      allow delete: if false;
+    }
+  }
+}
