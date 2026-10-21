@@ -871,3 +871,7 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .gate-who{font-size:13px;color:var(--ice);margin:-6px 0 10px}.gate-who b{color:#fff}
 .acc-row{gap:8px}.acc-mail{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
 .acc-free{padding:5px 10px;font-size:13px}
+
+.ptest{margin-top:14px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px;text-align:left}
+.ptest .btn{width:100%}
+.ptest-out{font-size:13px;line-height:1.5;margin-top:8px;color:var(--ice)}
