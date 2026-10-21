@@ -1,5 +1,5 @@
 /* Servicio de fondo de la app: la hace instalable, la abre rápido y recibe los avisos */
-const CACHE = "legends-cup-v3";
+const CACHE = "legends-cup-v4";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
@@ -22,8 +22,10 @@ self.addEventListener("fetch", e => {
 });
 self.addEventListener("push", e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "Legends Cup", body: e.data && e.data.text() }; }
+  /* quiet: llega sin sonido ni vibración (no juegas ese partido, o es de noche); el mismo tag sustituye al aviso anterior */
   e.waitUntil(self.registration.showNotification(d.title || "Americana Legends Cup", {
-    body: d.body || "", tag: d.tag || "liga", icon: "icon-192.png", badge: "icon-192.png", data: { url: d.url || "./" }, renotify: !!d.tag
+    body: d.body || "", tag: d.tag || "liga", icon: "icon-192.png", badge: "icon-192.png", data: { url: d.url || "./" },
+    renotify: !!d.tag && !d.quiet, silent: !!d.quiet, vibrate: d.quiet ? undefined : [80, 40, 80]
   }));
 });
 self.addEventListener("notificationclick", e => {
