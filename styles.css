@@ -866,3 +866,8 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .sv-nav .btn:disabled{opacity:.4}
 .sv-note{font-size:12px;color:var(--ice);opacity:.85;margin:14px 0 0;text-align:center}
 .locked #survey{display:flex}
+
+.gate-alt{width:100%;margin-top:8px;background:transparent!important;color:#fff!important;border-color:rgba(255,255,255,.55)!important}
+.gate-who{font-size:13px;color:var(--ice);margin:-6px 0 10px}.gate-who b{color:#fff}
+.acc-row{gap:8px}.acc-mail{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.acc-free{padding:5px 10px;font-size:13px}
