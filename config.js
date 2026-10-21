@@ -8,7 +8,8 @@ window.LIGA_CONFIG = {
   // No es una contraseña: la seguridad la ponen las reglas de Firestore.
   FIREBASE: {
     apiKey: "AIzaSyCv-6otgZUtTF3pDscRvUd_oWwz_CZYLis",
-    authDomain: "americana-legends-cup.firebaseapp.com",
+    // El acceso con Google vuelve a TU dominio (Vercel lo reenvía a Firebase): así Safari no pierde la sesión.
+    authDomain: /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "americana-legends-cup.firebaseapp.com" : location.hostname,
     projectId: "americana-legends-cup",
     storageBucket: "americana-legends-cup.firebasestorage.app",
     messagingSenderId: "424447945192",
