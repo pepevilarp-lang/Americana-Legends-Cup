@@ -51,6 +51,7 @@ function diffEvent(prev,next){
   if(wasDone&&isDone&&scoreText(prev)!==scoreText(next)) return {k:"correct",old:scoreText(prev)};
   if(wasDone&&!isDone) return {k:"reset",old:scoreText(prev)};
   if(next.status==="live"&&(!prev||prev.status!=="live")) return {k:"live"};
+  if(prev&&prev.status==="live"&&next.status==="live"&&setsCount(next)>setsCount(prev)) return {k:"set"};
   if(!isDone&&next.status!=="live"&&((prev&&prev.date||"")!==(next.date||"")||(prev&&prev.time||"")!==(next.time||"")||(prev&&prev.court||"")!==(next.court||""))) return {k:"date"};
   return null;
 }
@@ -67,24 +68,58 @@ function logText(ev,m,next){
   }
   return "";
 }
-function pushFor(ev,m,next){
-  const A=nm(m.a),B=nm(m.b),j=jLabel(m);
-  if(ev.k==="live") return {payload:{title:"🔴 EN DIRECTO",body:`${A} vs ${B} · ${j}`,tag:"live-"+m.id,url:"./#hoy"}};
-  if(ev.k==="result"||ev.k==="final"){ const r=result(next), W=r.w==="a"?m.a:m.b, L=r.w==="a"?m.b:m.a;
-    return {payload:{title:`🏁 Final · ${j}`,body:r.wo?`WO: gana ${nm(W)} a ${nm(L)}`:`${nm(W)} gana a ${nm(L)} ${scoreText(next)}`,tag:"res-"+m.id,url:"./#clasificacion"}}; }
-  if(ev.k==="date"&&next.date) return {payload:{title:"📅 Partido fijado",body:`${A} vs ${B} · ${fmtDay(next.date)}${next.time?" "+next.time:""}${next.court?" · "+next.court:""}`,tag:"date-"+m.id,url:"./#calendario"},only:[m.a,m.b]};
-  return null;
+/* AVISOS · qué se avisa, a quién y con cuánto ruido.
+   Cada partido tiene su «hilo» (tag): un aviso nuevo sustituye al anterior en vez de amontonarse.
+   «quiet» = llega sin sonido (para quien no juega ese partido, y de noche lo decide el servidor). */
+function setsCount(m){ const w=setsWon((m&&m.sets)||[]); return w.a+w.b; }
+function posMap(){ try{ const by=standings().byId; return Object.fromEntries(PLAYERS.map(p=>[p.id,by[p.id].pos])); }catch(_){ return null; } }
+function moveText(id,before,after){ const b=before&&before[id], a=after&&after[id]; if(!b||!a) return ""; if(a===1) return b===1?`${nm(id)} sigue líder 👑`:`${nm(id)} se pone líder 👑`; if(a===b) return ""; return `${nm(id)} ${a<b?"sube":"baja"} al ${a}.º`; }
+function pushPlan(ev,m,prev,next,before){
+  const A=nm(m.a),B=nm(m.b),j=jLabel(m), both=[m.a,m.b], others=PLAYERS.map(p=>p.id).filter(x=>!both.includes(x));
+  const by=S.me?nm(S.me):"Alguien";
+  const when=d=>`${fmtDay(d.date)}${d.time?" · "+d.time:""}${d.court?" · "+d.court:""}`;
+  switch(ev.k){
+    case "live":
+      return [{payload:{title:`🔴 En directo · ${j}`,body:`${A} vs ${B}. Sigue el marcador punto a punto.`,tag:"live-"+m.id,url:"./#hoy"}}];
+    case "set": {
+      const w=setsWon(next.sets||[]), last=(next.sets||[]).filter(setDone).slice(-1)[0], ws=last&&last.a>last.b?m.a:m.b;
+      return [{payload:{title:`🔴 ${A} ${w.a}–${w.b} ${B}`,body:`Set para ${nm(ws)}${last?` (${last.a}-${last.b})`:""}. Sigue en directo.`,tag:"live-"+m.id,url:"./#hoy",quiet:true}}];
+    }
+    case "result": case "final": case "wo": {
+      const r=result(next), W=r.w==="a"?m.a:m.b, L=r.w==="a"?m.b:m.a;
+      let mv=""; if(before&&FX[m.id]){ const after=posMap(); mv=[moveText(W,before,after),moveText(L,before,after)].filter(Boolean).join(" · "); }
+      return [{payload:{title:`🏁 Final · ${j}`,body:(r.wo?`WO: gana ${nm(W)} a ${nm(L)}`:`${nm(W)} gana a ${nm(L)} ${scoreText(next)}`)+(mv?`. ${mv}`:""),tag:"res-"+m.id,url:"./#clasificacion"}}];
+    }
+    case "correct":
+      return [{payload:{title:"✏️ Resultado corregido",body:`${A}–${B} (${j}): ${ev.old} → ${scoreText(next)}. Lo cambió ${by}.`,tag:"res-"+m.id,url:"./#registro"},only:both}];
+    case "reset":
+      return [{payload:{title:"🗑️ Resultado borrado",body:`${A}–${B} (${j}): se ha borrado ${ev.old}. Lo hizo ${by}.`,tag:"res-"+m.id,url:"./#registro"},only:both}];
+    case "date": {
+      if(!next.date) return [{payload:{title:"📅 Fecha anulada",body:`${A} vs ${B} (${j}) vuelve a estar sin fecha.`,tag:"date-"+m.id,url:"./#calendario"},only:both}];
+      const t=(prev&&prev.date)?"🔁 Partido cambiado":"📅 Partido fijado", body=`${A} vs ${B} · ${when(next)}`;
+      return [{payload:{title:t,body,tag:"date-"+m.id,url:"./#calendario"},only:both},
+              {payload:{title:t,body,tag:"date-"+m.id,url:"./#calendario",quiet:true},only:others}];
+    }
+  }
+  return [];
+}
+/* Al fijar fecha se suelen tocar día, hora y pista seguidos: se espera unos segundos y solo sale el último */
+const PUSH_WAIT={};
+function sendPush(p,key){
+  if(!key){ Push.notify(p.payload,{only:p.only}); return; }
+  const k=key+(p.payload.quiet?"-q":""); clearTimeout(PUSH_WAIT[k]);
+  PUSH_WAIT[k]=setTimeout(()=>{ delete PUSH_WAIT[k]; Push.notify(p.payload,{only:p.only}); },6000);
 }
 const _setMatch=Store.setMatch;
 Store.setMatch=function(id,data){
-  const prev=this.matches[id]?JSON.parse(JSON.stringify(this.matches[id])):undefined;
-  return _setMatch.call(this,id,data).then(ok=>{ if(ok){ try{ afterSave(id,prev,data); }catch(e){ console.error(e); } } return ok; });
+  const prev=this.matches[id]?JSON.parse(JSON.stringify(this.matches[id])):undefined, before=FX[id]?posMap():null;
+  return _setMatch.call(this,id,data).then(ok=>{ if(ok){ try{ afterSave(id,prev,data,before); }catch(e){ console.error(e); } } return ok; });
 };
-function afterSave(id,prev,next){
+function afterSave(id,prev,next,before){
   const ev=diffEvent(prev,next); if(!ev) return;
-  const m=getMatch(id);
-  Store.addLog({t:Date.now(),who:S.me||"",k:ev.k,m:id,txt:logText(ev,m,next)});
-  const p=pushFor(ev,m,next); if(p) Push.notify(p.payload,{only:p.only});
+  const m=getMatch(id), txt=logText(ev,m,next);
+  if(txt) Store.addLog({t:Date.now(),who:S.me||"",k:ev.k,m:id,txt});
+  pushPlan(ev,m,prev,next,before).forEach(p=>sendPush(p,ev.k==="date"?"date-"+id:null));
 }
 
 /* =====================================================================
@@ -345,15 +380,19 @@ const Push={
       if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u8(CFG.PUSH_KEY)});
       const json=sub.toJSON(), id=await sha(json.endpoint); flag("am_push",id);
       await Store.db.collection("push").doc(id).set({sub:JSON.stringify(json),who:S.me||"",t:Date.now()});
-      this.notify({title:"🔔 ¡Avisos activados!",body:"Te avisaremos de partidos en directo, resultados y partidos fijados.",tag:"welcome"},{target:id});
+      try{ await reg.showNotification("🔔 ¡Avisos activados!",{body:"Te avisaremos cuando se fije un partido, empiece un directo o haya resultado.",tag:"welcome",icon:"icon-192.png",badge:"icon-192.png"}); }catch(_){}
       return {ok:true};
     }catch(e){ console.error(e); return {ok:false,reason:isPerm(e)?"rules":"error",detail:String(e&&e.message||e)}; }
   },
   async syncWho(){ const id=flag("am_push"); if(!id||!Store.db) return; try{ await Store.db.collection("push").doc(id).set({who:S.me||""},{merge:true}); }catch(e){} },
   async notify(payload,opts={}){
-    if(!Store.db||!CFG.PUSH_KEY||!firebase.auth().currentUser) return;
+    if(!Store.db||!CFG.PUSH_KEY||!firebase.auth().currentUser) return {ok:false,error:"no-session"};
     try{ const tok=await firebase.auth().currentUser.getIdToken();
-      await fetch("/api/push",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:tok,payload,exclude:opts.target?"":(flag("am_push")||""),only:opts.only||null,target:opts.target||null})}); }catch(e){}
+      const r=await fetch("/api/push",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:tok,payload,exclude:opts.target?"":(flag("am_push")||""),only:opts.only||null,target:opts.target||null})});
+      let j={}; try{ j=await r.json(); }catch(_){}
+      if(!r.ok) console.warn("Avisos:",r.status,j);
+      return {ok:r.ok,status:r.status,...j};
+    }catch(e){ console.warn("Avisos:",e); return {ok:false,error:String(e&&e.message||e)}; }
   },
   state(){ return !("Notification" in window)?"unsupported":Notification.permission; }
 };
@@ -693,7 +732,7 @@ async function surveyCreate(id){
   }
 }
 const _afterSave=afterSave;
-afterSave=function(id,prev,next){ _afterSave(id,prev,next); surveyCreate(id); };
+afterSave=function(id,prev,next,before){ _afterSave(id,prev,next,before); surveyCreate(id); };
 
 /* Al entrar: se mira si hay encuestas pendientes */
 const _listen2=Store.listen;
@@ -752,6 +791,47 @@ function vEncuestas(){
     <h3 class="pf-h">Por partido</h3><div class="panel">${byMatch.length?byMatch.map(r=>{const m=getMatch(r.id); return `<div class="tline"><span>${esc(nm(m.a))} – ${esc(nm(m.b))} · ${esc(jLabel(m))}</span><b class="num">${r.c}/${r.n}</b></div>`;}).join(""):`<div class="empty">Aún no hay encuestas.</div>`}</div>`;
 }
 
-window.Features={Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushFor,daysLeftAt};
+/* =====================================================================
+   DIAGNÓSTICO DE AVISOS · botón «Probar avisos» en «Mi móvil»: dice exactamente dónde falla
+   ===================================================================== */
+function pushErrText(r){
+  if(!r) return "sin respuesta del servidor";
+  if(r.error==="no-session") return "no hay sesión iniciada";
+  if(r.status===404) return "la función de avisos no está desplegada: falta api/push.js o package.json en GitHub";
+  if(r.error==="vapid keys missing") return "faltan VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY en Vercel (o falta hacer Redeploy)";
+  if(r.error==="vapid subject") return "VAPID_SUBJECT no es válido en Vercel: debe ser mailto:tucorreo@gmail.com";
+  if(r.status===403) return "tu cuenta todavía no ha metido el PIN";
+  if(r.ok&&!r.sent&&r.failed) return `el envío falló (${r.reason||"error"}). Si pone 403 o «UnauthorizedRegistration», la clave PUSH_KEY de config.js no coincide con VAPID_PUBLIC_KEY de Vercel`;
+  if(r.ok&&!r.sent) return "este dispositivo no está en la lista de avisos: desactiva y vuelve a activar los avisos";
+  return `error ${r.status||""} ${r.error||""}`.trim();
+}
+async function pushTest(out){
+  if(!out) return;
+  const L=[], line=(ok,t)=>{ L.push(`${ok?"✅":"❌"} ${t}`); out.innerHTML=L.map(esc).join("<br>"); };
+  out.innerHTML="Comprobando…";
+  const sup=Push.supported(); line(sup, sup?"Este navegador admite avisos":(isIOS()&&!isStandalone()?"En iPhone los avisos solo funcionan abriendo la app instalada desde su icono":"Este navegador no admite avisos"));
+  if(!sup) return;
+  const perm=Notification.permission; line(perm==="granted",`Permiso de avisos: ${perm==="granted"?"concedido":perm==="denied"?"bloqueado en los ajustes":"sin conceder"}`);
+  const id=flag("am_push"); line(!!id,id?"Este dispositivo está registrado":"Este dispositivo no está registrado");
+  if(perm!=="granted"||!id){ L.push("→ Activa los avisos y vuelve a probar."); out.innerHTML=L.map(esc).join("<br>"); return; }
+  try{ const reg=await Push.getReg(); await reg.showNotification("🔔 Prueba local",{body:"Si ves esto, el móvil sí muestra los avisos de la app.",tag:"test-local",icon:"icon-192.png"}); line(true,"Aviso local enviado: debería aparecer ya"); }
+  catch(err){ line(false,"El móvil no deja mostrar avisos: "+(err&&err.message||err)); }
+  const r=await Push.notify({title:"🔔 Prueba desde el servidor",body:"Si ves esto, los avisos de la liga funcionan.",tag:"test-server"},{target:id});
+  if(r&&r.ok&&r.sent>0) line(true,"Servidor: aviso enviado. Si no aparece en unos segundos, mira el modo No molestar / Concentración.");
+  else line(false,"Servidor: "+pushErrText(r));
+}
+(function(){
+  const _show=Onb.show.bind(Onb);
+  Onb.show=function(only){
+    _show(only); if(only) return;
+    const card=document.querySelector("#onb .onb-card"); if(!card) return;
+    const d=document.createElement("div"); d.className="ptest";
+    d.innerHTML=`<button class="btn ghost" data-x="pushtest">🔔 Probar avisos</button><div class="ptest-out" id="ptest-out" role="status"></div>`;
+    card.appendChild(d);
+  };
+  document.addEventListener("click",ev=>{ if(ev.target.closest('[data-x="pushtest"]')) pushTest(document.getElementById("ptest-out")); });
+})();
+
+window.Features={Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
 schedule();
 })();
