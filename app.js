@@ -79,6 +79,16 @@ const SEED = {
    Datos: Supabase en tiempo real (o modo prueba local)
    ===================================================================== */
 let VERSION = 0;
+function authErrMsg(e){
+  const c=String(e&&(e.code||e.message)||"");
+  if(/unauthorized-domain/.test(c)) return "Este dominio no está autorizado en Firebase: Authentication > Configuración > Dominios autorizados.";
+  if(/operation-not-allowed/.test(c)) return "El acceso con Google no está activado en Firebase: Authentication > Método de acceso > Google.";
+  if(/popup-closed-by-user|cancelled-popup-request|user-cancelled/.test(c)) return "Has cerrado la ventana de Google antes de terminar. Vuelve a pulsar el botón.";
+  if(/network-request-failed/.test(c)) return "Sin conexión con Google. Revisa internet y vuelve a intentarlo.";
+  if(/web-storage-unsupported|storage/.test(c)) return "Este navegador bloquea el almacenamiento necesario. Desactiva el bloqueo estricto o usa otro navegador.";
+  if(/redirect_uri_mismatch|invalid-continue-uri|auth-domain-config-required/.test(c)) return "Falta autorizar la dirección de vuelta en Google Cloud (ver instrucciones del organizador).";
+  return "No se pudo entrar con Google ("+c+").";
+}
 const isPerm = e => /permission|PERMISSION_DENIED/i.test(String(e&&(e.code||e.message)));
 const Store = {
   matches:{}, preds:{}, votes:{}, db:null, member:false, listening:false, local:false, first:false, unsubs:[],
@@ -100,10 +110,14 @@ const Store = {
       this.bump(); this.member?hideGate():setGate("pin"); return;
     }
     if(!window.firebase){ setGate("error","No se pudo cargar Firebase. Revisa la conexión y recarga la página."); return; }
+    let redirErr=null;
     try{
       firebase.initializeApp(CFG.FIREBASE);
       this.db=firebase.firestore();
-      await firebase.auth().getRedirectResult().catch(e=>console.error(e));
+      const auth=firebase.auth();
+      if(auth.useDeviceLanguage) auth.useDeviceLanguage();
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+      await auth.getRedirectResult().catch(e=>{ redirErr=e; console.error(e); });
     }catch(e){
       console.error(e); const c=String(e.code||e.message||e);
       setSync(false,"Sin conexión con Firebase");
@@ -112,10 +126,16 @@ const Store = {
       return;
     }
     const user=await new Promise(res=>{ const un=firebase.auth().onAuthStateChanged(u=>{ if(un) un(); res(u); }); });
-    if(!user){ setGate("login"); return; }
+    const cameBack=sessionStorage.getItem("am_redirect")==="1"; sessionStorage.removeItem("am_redirect");
+    if(!user){
+      /* Si volvemos de Google sin sesión, decimos por qué en vez de enseñar otra vez el botón sin más */
+      this.offerAlt=!!(redirErr||cameBack);
+      setGate("login", redirErr ? authErrMsg(redirErr) : cameBack ? "El inicio de sesión con Google no llegó a completarse. Pulsa «Probar de otra forma»." : "");
+      return;
+    }
     await this.afterLogin();
   },
-  /* Orden obligatorio: cuenta de Google -> elegir cara (una vez) -> avisos push -> PIN de la liga -> app */
+  /* Orden: cuenta de Google -> su cara (una vez por cuenta) -> avisos (una vez por dispositivo) -> PIN (una vez por cuenta) -> app */
   async afterLogin(){
     const u=firebase.auth().currentUser; if(!u){ setGate("login"); return; }
     setGate("loading","Comprobando tu cuenta…");
@@ -131,40 +151,59 @@ const Store = {
       return;
     }
     if(window.pushOk && !(await window.pushOk())){ setGate("push"); return; }
-    if(localStorage.getItem("am_ok")==="1"){ this.member=true; this.listen(); }
-    else setGate("pin");
+    if(localStorage.getItem("am_ok")==="1"){ this.member=true; this.listen(); return; }
+    /* El PIN va con la cuenta: si esta cuenta ya lo metió en otro dispositivo, puede leer los partidos y no se vuelve a pedir */
+    try{ await this.db.collection("matches").limit(1).get(); localStorage.setItem("am_ok","1"); this.member=true; this.listen(); return; }
+    catch(e){ if(!isPerm(e)) console.error(e); }
+    setGate("pin");
   },
   async showClaim(msg){
-    let taken=new Set();
-    try{ const s=await this.db.collection("claims").get(); taken=new Set(s.docs.map(d=>d.id)); }catch(e){ console.error(e); }
-    this.taken=taken; setGate("claim",msg||"");
+    const u=firebase.auth().currentUser;
+    let claims=[];
+    try{ const s=await this.db.collection("claims").get(); claims=s.docs.map(d=>({pid:d.id,...d.data()})); }
+    catch(e){ console.error(e); if(isPerm(e)){ setGate("error","Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas."); return; } }
+    /* Recuperación: si esta cuenta ya reservó una cara pero no llegó a ligarse, se liga sola */
+    const mine=claims.find(c=>c.uid===u.uid);
+    if(mine&&!msg){ await this.claim(mine.pid,true); return; }
+    this.taken=new Set(claims.filter(c=>c.uid!==u.uid).map(c=>c.pid));
+    setGate("claim",msg||"");
   },
-  loginGoogle(btn){
+  loginGoogle(btn,alt){
     const prov=new firebase.auth.GoogleAuthProvider(); prov.setCustomParameters({prompt:"select_account"});
-    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
-    btn.disabled=true; btn.textContent="Abriendo Google…";
-    const fail=e=>{ btn.disabled=false; btn.textContent="Entrar con Google"; const err=document.getElementById("gate-err"); if(err) err.textContent="No se pudo entrar con Google: "+(e&&(e.message||e.code)||""); };
-    if(ios||standalone){ firebase.auth().signInWithRedirect(prov).catch(fail); return; }
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+    const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+    /* iPhone y app instalada: redirección. Ordenador y navegador Android: ventana. «Probar de otra forma» usa el otro. */
+    const useRedirect=alt ? !(ios||standalone) : (ios||standalone);
+    const label=btn.textContent; btn.disabled=true; btn.textContent="Abriendo Google…";
+    const fail=e=>{ btn.disabled=false; btn.textContent=label; this.offerAlt=true; setGate("login",authErrMsg(e)); };
+    const redirect=()=>{ sessionStorage.setItem("am_redirect","1"); return firebase.auth().signInWithRedirect(prov).catch(e=>{ sessionStorage.removeItem("am_redirect"); fail(e); }); };
+    if(useRedirect){ redirect(); return; }
     firebase.auth().signInWithPopup(prov).then(()=>this.afterLogin()).catch(e=>{
-      if(/popup/i.test(String(e&&e.code||""))) return firebase.auth().signInWithRedirect(prov);
+      if(/popup-blocked|operation-not-supported-in-this-environment/i.test(String(e&&e.code||""))) return redirect();
       fail(e);
     });
   },
-  /* Cada cara es de una sola persona: se reserva con create() (falla si ya la tiene otro) */
-  async claim(pid){
+  async switchAccount(){
+    try{ await firebase.auth().signOut(); }catch(e){}
+    ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k));
+    location.reload();
+  },
+  /* Reserva de la cara y ligado a la cuenta en UNA operación: o se hacen las dos o ninguna */
+  async claim(pid,recover){
     const u=firebase.auth().currentUser; if(!u) return;
     try{
-      /* Reserva atómica: solo si nadie tiene esa cara (create() no existe en el SDK web de Firestore) */
       await this.db.runTransaction(async t=>{
-        const ref=this.db.collection("claims").doc(pid), s=await t.get(ref);
-        if(s.exists) throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
-        t.set(ref,{uid:u.uid,t:Date.now()});
+        const cref=this.db.collection("claims").doc(pid), pref=this.db.collection("players").doc(u.uid);
+        const cs=await t.get(cref), ps=await t.get(pref);
+        if(ps.exists) return;                                    // ya ligada (doble toque u otro dispositivo)
+        if(cs.exists&&cs.data().uid!==u.uid) throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
+        if(!cs.exists) t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()});
+        t.set(pref,{player:pid,email:u.email||"",t:Date.now()});
       });
-      await this.db.collection("players").doc(u.uid).set({player:pid,t:Date.now()});
     }catch(e){
       const m=String(e.code||e.message||e);
-      if(/already-exists|already exists|ALREADY_EXISTS/i.test(m)) return this.showClaim("Esa cara ya la ha elegido otra persona. Elige otra.");
-      if(isPerm(e)) return setGate("error","Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas.");
+      if(/already-exists|already exists|ALREADY_EXISTS/i.test(m)) return this.showClaim("Esa cara ya la tiene otra cuenta. Elige otra o cambia de cuenta.");
+      if(isPerm(e)) return setGate("error","Las reglas de Firebase no están publicadas o son antiguas: pega firestore.rules en Firestore > Reglas.");
       return setGate("error","No se pudo guardar tu jugador ("+m+").");
     }
     this.myPlayer=pid; S.me=pid; localStorage.setItem("am_me",pid);
@@ -268,8 +307,8 @@ function gateHead(){
 }
 function gateState(st,msg){
   const ios=/iphone|ipad|ipod/i.test(navigator.userAgent), standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
-  if(st==="login") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Para entrar, inicia sesión con tu cuenta de Google.</p><button class="btn ball" id="gate-google">Entrar con Google</button><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div><p class="gate-hint">Solo se pide una vez. Tu cuenta queda ligada a tu jugador.</p></div>`;
-  if(st==="claim") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Elige tu cara. Solo se hace una vez y queda ligada a tu cuenta.</p><div class="gate-claims">${PLAYERS.map(p=>{const taken=Store.taken&&Store.taken.has(p.id); return `<button class="gc" data-claim="${p.id}" ${taken?"disabled":""} style="--c:${p.color}"><span class="av" style="--c:${p.color}"><img src="${IMG(p.id)}" alt=""></span><span>${esc(p.first)}</span>${taken?"<em>ocupada</em>":""}</button>`;}).join("")}</div><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div></div>`;
+  if(st==="login") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Para entrar, inicia sesión con tu cuenta de Google.</p><button class="btn ball" id="gate-google">Entrar con Google</button>${Store.offerAlt?`<button class="btn ghost gate-alt" id="gate-google-alt">Probar de otra forma</button>`:""}<div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div><p class="gate-hint">Usa siempre la misma cuenta de Google en el móvil y en el ordenador.</p></div>`;
+  if(st==="claim"){ const cu=firebase.auth&&firebase.auth().currentUser; return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Elige tu cara. Solo se hace una vez por cuenta y sirve en todos tus dispositivos.</p>${cu&&cu.email?`<p class="gate-who">Has entrado como <b>${esc(cu.email)}</b></p>`:""}<div class="gate-claims">${PLAYERS.map(p=>{const taken=Store.taken&&Store.taken.has(p.id); return `<button class="gc" data-claim="${p.id}" ${taken?"disabled":""} style="--c:${p.color}"><span class="av" style="--c:${p.color}"><img src="${IMG(p.id)}" alt=""></span><span>${esc(p.first)}</span>${taken?"<em>ocupada</em>":""}</button>`;}).join("")}</div><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div><p class="gate-hint">¿Tu cara sale ocupada? Seguramente has entrado con otra cuenta de Google.</p><button class="btn ghost gate-alt" id="gate-switch">Cambiar de cuenta</button></div>`; }
   if(st==="push") return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><p class="gate-login-t">Los avisos son obligatorios: te avisamos de partidos en directo, resultados y encuestas.</p>${
       ios&&!standalone ? `<div class="gate-help"><b>En iPhone:</b> pulsa <b>Compartir</b> ⬆️ de Safari y elige <b>«Añadir a pantalla de inicio»</b>. Luego abre la app desde su icono.</div><button class="btn ball" id="gate-reload">Ya la he instalado</button>`
       : `<button class="btn ball" id="gate-push">🔔 Activar avisos</button>`}<div class="gate-err" id="gate-push-help" role="alert">${esc(msg||"")}</div></div>`;
@@ -312,7 +351,9 @@ function setGate(st,msg){
   if(st==="pin"){ g.classList.remove("unlocking","leaving","burst"); delete g.dataset.leaving; GATE_T0=0; }
   g.querySelector(".gate-state").innerHTML=gateState(st,msg);
   const retry=g.querySelector("#gate-retry"); if(retry) retry.onclick=()=>location.reload();
-  const gg=g.querySelector("#gate-google"); if(gg) gg.onclick=()=>Store.loginGoogle(gg);
+  const gg=g.querySelector("#gate-google"); if(gg) gg.onclick=()=>Store.loginGoogle(gg,false);
+  const ga=g.querySelector("#gate-google-alt"); if(ga) ga.onclick=()=>Store.loginGoogle(ga,true);
+  const gs=g.querySelector("#gate-switch"); if(gs) gs.onclick=()=>Store.switchAccount();
   g.querySelectorAll("[data-claim]").forEach(b=>b.onclick=()=>{ b.disabled=true; Store.claim(b.dataset.claim); });
   const gp=g.querySelector("#gate-push"); if(gp) gp.onclick=()=>window.pushEnableGate&&window.pushEnableGate(gp);
   const gr=g.querySelector("#gate-reload"); if(gr) gr.onclick=()=>location.reload();
