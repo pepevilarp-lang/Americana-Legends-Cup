@@ -1,5 +1,5 @@
 /* Servicio de fondo de la app: la hace instalable, la abre rápido y recibe los avisos */
-const CACHE = "legends-cup-v2";
+const CACHE = "legends-cup-v3";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
@@ -9,7 +9,7 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   const r = e.request, u = new URL(r.url);
-  if (r.method !== "GET" || u.origin !== location.origin || u.pathname.startsWith("/api/")) return;   // Firebase y el resto, directos
+  if (r.method !== "GET" || u.origin !== location.origin || u.pathname.startsWith("/api/") || u.pathname.startsWith("/__/")) return;   // acceso con Google, avisos y Firebase: siempre directos
   const img = /\.(webp|png|jpg|svg)$/.test(u.pathname);
   if (img) {   // fotos: primero la copia guardada (llevan ?v= para renovarse)
     e.respondWith(caches.open(CACHE).then(async c => { const hit = await c.match(r); if (hit) return hit;
