@@ -704,8 +704,32 @@ Store.listen=function(){ const was=this.listening; _listen2.call(this); if(!was)
    ===================================================================== */
 window.onAdmin=function(){
   if(TABS.some(t=>t[0]==="encuestas")) return;
-  TABS.push(["encuestas","Encuestas"]); VIEWS.encuestas=vEncuestas; schedule();
+  TABS.push(["encuestas","Organizador"]); VIEWS.encuestas=()=>vCuentas()+vEncuestas(); schedule();
 };
+/* Cuentas: qué cuenta de Google tiene cada cara, y botón para liberarla (cuenta borrada, cuenta equivocada…) */
+let ACC_CACHE=null;
+async function loadAccounts(){ const s=await Store.db.collection("claims").get(); ACC_CACHE=s.docs.map(d=>({pid:d.id,...d.data()})); schedule(); }
+function vCuentas(){
+  if(!Store.isAdmin) return "";
+  if(ACC_CACHE===null){ loadAccounts().catch(e=>{ ACC_CACHE=[]; console.error(e); }); return `<h2>Cuentas</h2><div class="empty">Cargando…</div>`; }
+  const by=Object.fromEntries(ACC_CACHE.map(c=>[c.pid,c]));
+  return `<h2>Cuentas</h2><p class="sub">Qué cuenta de Google tiene cada cara. Si alguien entró con la cuenta equivocada o borraste su cuenta, libera su cara y podrá elegirla de nuevo.</p>
+  <div class="panel">${PLAYERS.map(p=>{ const c=by[p.id];
+    return `<div class="tline acc-row"><div class="pl">${av(p.id,"sm")}<span>${esc(p.first)}</span></div>
+      <span class="mini acc-mail">${c?esc(c.email||"cuenta sin correo")+(c.uid?" · "+esc(String(c.uid).slice(0,6))+"…":""):"<i>libre</i>"}</span>
+      ${c?`<button class="btn danger acc-free" data-x="freeclaim" data-id="${p.id}" data-uid="${esc(c.uid||"")}">Liberar</button>`:""}</div>`; }).join("")}</div>`;
+}
+document.addEventListener("click",async ev=>{
+  const t=ev.target.closest('[data-x="freeclaim"]'); if(!t||!Store.isAdmin) return;
+  const pid=t.dataset.id, uid=t.dataset.uid;
+  if(!confirm(`¿Liberar la cara de ${nm(pid)}? Esa cuenta tendrá que volver a elegir cara.`)) return;
+  t.disabled=true;
+  try{
+    await Store.db.collection("claims").doc(pid).delete();
+    if(uid) await Store.db.collection("players").doc(uid).delete().catch(()=>{});
+    toast(`Cara de ${nm(pid)} liberada`); ACC_CACHE=null; schedule();
+  }catch(e){ console.error(e); t.disabled=false; toast(isPerm(e)?"Sin permiso: publica las reglas nuevas":"No se pudo liberar"); }
+});
 let ENC_CACHE=null;
 async function loadSurveyStats(){
   const snap=await Store.db.collection("surveys").get();
