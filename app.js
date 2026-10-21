@@ -190,28 +190,43 @@ const Store = {
     ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k));
     location.reload();
   },
-  /* Reserva de la cara y ligado a la cuenta en UNA operación: o se hacen las dos o ninguna */
+  /* Reserva de la cara y ligado a la cuenta. Primero en UNA operación (o las dos o ninguna).
+     Si las reglas publicadas son antiguas y no lo permiten, se hace en dos pasos: si el segundo falla,
+     al volver a entrar se recupera sola porque la reserva ya lleva tu identificador y tu correo. */
   async claim(pid,recover){
     const u=firebase.auth().currentUser; if(!u) return;
+    const cref=this.db.collection("claims").doc(pid), pref=this.db.collection("players").doc(u.uid);
+    const reserve=(t,c)=>{
+      if(c){
+        if(c.uid===u.uid) return false;                                  // ya es tuya
+        if(c.email&&u.email&&c.email===u.email){ t.set(cref,{uid:u.uid,email:c.email,name:u.displayName||c.name||"",t:Date.now()}); return true; }   // mismo correo
+        throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
+      }
+      t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()}); return true;
+    };
+    let step="reserva";
     try{
-      await this.db.runTransaction(async t=>{
-        const cref=this.db.collection("claims").doc(pid), pref=this.db.collection("players").doc(u.uid);
-        const cs=await t.get(cref), ps=await t.get(pref);
-        if(ps.exists) return;                                    // ya ligada (doble toque u otro dispositivo)
-        if(cs.exists){
-          const c=cs.data();
-          if(c.uid!==u.uid){
-            if(c.email&&u.email&&c.email===u.email) t.set(cref,{uid:u.uid,email:c.email,name:u.displayName||c.name||"",t:Date.now()});   // mismo correo: es tuya
-            else throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
-          }
-        } else t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()});
-        t.set(pref,{player:pid,email:u.email||"",t:Date.now()});
-      });
+      try{
+        await this.db.runTransaction(async t=>{
+          const cs=await t.get(cref), ps=await t.get(pref);
+          if(ps.exists) return;
+          reserve(t,cs.exists?cs.data():null);
+          t.set(pref,{player:pid,email:u.email||"",t:Date.now()});
+        });
+      }catch(e){
+        if(!isPerm(e)) throw e;
+        /* reglas antiguas: dos pasos */
+        await this.db.runTransaction(async t=>{ const cs=await t.get(cref); reserve(t,cs.exists?cs.data():null); });
+        step="ligado";
+        const ps=await pref.get();
+        if(!ps.exists) await pref.set({player:pid,email:u.email||"",t:Date.now()});
+      }
     }catch(e){
+      console.error(e);
       const m=String(e.code||e.message||e);
       if(/already-exists|already exists|ALREADY_EXISTS/i.test(m)) return this.showClaim("Esa cara ya la tiene otra cuenta. Elige otra o cambia de cuenta.");
-      if(isPerm(e)) return setGate("error","Las reglas de Firebase no están publicadas o son antiguas: pega firestore.rules en Firestore > Reglas.");
-      return setGate("error","No se pudo guardar tu jugador ("+m+").");
+      if(isPerm(e)) return setGate("error",`Firebase ha rechazado el paso «${step}» al guardar tu cara (permission-denied). Las reglas publicadas no son las últimas: vuelve a pegar firestore.rules completo y pulsa Publicar.`);
+      return setGate("error",`No se pudo guardar tu jugador (${step}: ${m}).`);
     }
     this.myPlayer=pid; S.me=pid; localStorage.setItem("am_me",pid);
     await this.afterLogin();
@@ -332,7 +347,7 @@ async function runDiagnostic(){
   const out=document.getElementById("gate-diag"); if(!out) return; out.classList.add("on"); out.textContent="Comprobando…";
   const cfg=CFG.FIREBASE||{}, L=[`Proyecto de config.js: ${cfg.projectId||"(sin configurar)"}`];
   if(!Store.db){ out.textContent=L.join("\n")+(CFG.FIREBASE?"\nSin conexión con Firebase: recarga la página.":"\nconfig.js no tiene la configuración de Firebase (FIREBASE: null)."); return; }
-  const u=firebase.auth().currentUser; L.push(`Sesión anónima: ${u?"sí ("+u.uid.slice(0,6)+"…)":"NO"}`);
+  const u=firebase.auth().currentUser; L.push(`Sesión de Google: ${u?(u.email||"sí")+" ("+u.uid.slice(0,6)+"…)":"NO"}`);
   const t=async f=>{ try{ await f(); return "ok"; }catch(e){ return isPerm(e)?"denegado":String(e.code||e.message||"error"); } };
   const ping=await t(()=>Store.db.collection("ping").doc("x").get());
   const pub=await t(()=>Store.db.collection("matches").limit(1).get());
