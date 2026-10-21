@@ -163,9 +163,11 @@ const Store = {
     try{ const s=await this.db.collection("claims").get(); claims=s.docs.map(d=>({pid:d.id,...d.data()})); }
     catch(e){ console.error(e); if(isPerm(e)){ setGate("error","Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas."); return; } }
     /* Recuperación: si esta cuenta ya reservó una cara pero no llegó a ligarse, se liga sola */
-    const mine=claims.find(c=>c.uid===u.uid);
+    /* La cara va con el CORREO: si es tu correo, es tu cara, aunque Firebase te haya dado otro identificador */
+    const sameMail=c=>!!(c.email&&u.email&&c.email===u.email);
+    const mine=claims.find(c=>c.uid===u.uid)||claims.find(sameMail);
     if(mine&&!msg){ await this.claim(mine.pid,true); return; }
-    this.taken=new Set(claims.filter(c=>c.uid!==u.uid).map(c=>c.pid));
+    this.taken=new Set(claims.filter(c=>c!==mine&&c.uid!==u.uid&&!sameMail(c)).map(c=>c.pid));
     setGate("claim",msg||"");
   },
   loginGoogle(btn,alt){
@@ -196,8 +198,13 @@ const Store = {
         const cref=this.db.collection("claims").doc(pid), pref=this.db.collection("players").doc(u.uid);
         const cs=await t.get(cref), ps=await t.get(pref);
         if(ps.exists) return;                                    // ya ligada (doble toque u otro dispositivo)
-        if(cs.exists&&cs.data().uid!==u.uid) throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
-        if(!cs.exists) t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()});
+        if(cs.exists){
+          const c=cs.data();
+          if(c.uid!==u.uid){
+            if(c.email&&u.email&&c.email===u.email) t.set(cref,{uid:u.uid,email:c.email,name:u.displayName||c.name||"",t:Date.now()});   // mismo correo: es tuya
+            else throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
+          }
+        } else t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()});
         t.set(pref,{player:pid,email:u.email||"",t:Date.now()});
       });
     }catch(e){
