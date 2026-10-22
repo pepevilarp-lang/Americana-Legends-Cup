@@ -157,6 +157,18 @@ const Store = {
     catch(e){ if(!isPerm(e)) console.error(e); }
     setGate("pin");
   },
+  /* El correo que ven las reglas de Firebase es el del token de sesión: se usa ese mismo para guardar la reserva */
+  async tokenMail(){
+    const u=firebase.auth().currentUser; if(!u) return "";
+    try{ const t=await u.getIdTokenResult(); return (t&&t.claims&&t.claims.email)||u.email||""; }catch(_){ return u.email||""; }
+  },
+  async claimDiag(pid,step,e){
+    const u=firebase.auth().currentUser; let tr=null, ex="no se pudo leer";
+    try{ tr=await u.getIdTokenResult(); }catch(_){}
+    try{ const s=await this.db.collection("claims").doc(pid).get(); ex=s.exists?`sí (correo ${s.data().email||"vacío"}, cuenta ${String(s.data().uid||"").slice(0,6)}…)`:"no"; }catch(_){}
+    const c=tr&&tr.claims||{};
+    return `Paso «${step}» · ${e.code||e.message||e} · correo de la sesión: ${c.email||u.email||"(ninguno)"} · verificado: ${c.email_verified===true?"sí":"no"} · cuenta: ${u.uid.slice(0,6)}… · cara ${pid} · reserva existente: ${ex}`;
+  },
   async showClaim(msg){
     const u=firebase.auth().currentUser;
     let claims=[];
@@ -164,7 +176,8 @@ const Store = {
     catch(e){ console.error(e); if(isPerm(e)){ setGate("error","Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas."); return; } }
     /* Recuperación: si esta cuenta ya reservó una cara pero no llegó a ligarse, se liga sola */
     /* La cara va con el CORREO: si es tu correo, es tu cara, aunque Firebase te haya dado otro identificador */
-    const sameMail=c=>!!(c.email&&u.email&&c.email===u.email);
+    const norm=s=>String(s||"").trim().toLowerCase(), myMail=norm((await this.tokenMail())||u.email);
+    const sameMail=c=>!!(c.email&&myMail&&norm(c.email)===myMail);
     const mine=claims.find(c=>c.uid===u.uid)||claims.find(sameMail);
     if(mine&&!msg){ await this.claim(mine.pid,true); return; }
     this.taken=new Set(claims.filter(c=>c!==mine&&c.uid!==u.uid&&!sameMail(c)).map(c=>c.pid));
@@ -199,11 +212,12 @@ const Store = {
     const reserve=(t,c)=>{
       if(c){
         if(c.uid===u.uid) return false;                                  // ya es tuya
-        if(c.email&&u.email&&c.email===u.email){ t.set(cref,{uid:u.uid,email:c.email,name:u.displayName||c.name||"",t:Date.now()}); return true; }   // mismo correo
+        if(c.email&&mail&&norm(c.email)===norm(mail)){ t.set(cref,{uid:u.uid,email:c.email,name:u.displayName||c.name||"",t:Date.now()}); return true; }   // mismo correo
         throw Object.assign(new Error("ya reservada"),{code:"already-exists"});
       }
-      t.set(cref,{uid:u.uid,email:u.email||"",name:u.displayName||"",t:Date.now()}); return true;
+      t.set(cref,{uid:u.uid,email:mail,name:u.displayName||"",t:Date.now()}); return true;
     };
+    const norm=s=>String(s||"").trim().toLowerCase(), mail=(await this.tokenMail())||u.email||"";
     let step="reserva";
     try{
       try{
@@ -211,7 +225,7 @@ const Store = {
           const cs=await t.get(cref), ps=await t.get(pref);
           if(ps.exists) return;
           reserve(t,cs.exists?cs.data():null);
-          t.set(pref,{player:pid,email:u.email||"",t:Date.now()});
+          t.set(pref,{player:pid,email:mail,t:Date.now()});
         });
       }catch(e){
         if(!isPerm(e)) throw e;
@@ -219,13 +233,13 @@ const Store = {
         await this.db.runTransaction(async t=>{ const cs=await t.get(cref); reserve(t,cs.exists?cs.data():null); });
         step="ligado";
         const ps=await pref.get();
-        if(!ps.exists) await pref.set({player:pid,email:u.email||"",t:Date.now()});
+        if(!ps.exists) await pref.set({player:pid,email:mail,t:Date.now()});
       }
     }catch(e){
       console.error(e);
       const m=String(e.code||e.message||e);
       if(/already-exists|already exists|ALREADY_EXISTS/i.test(m)) return this.showClaim("Esa cara ya la tiene otra cuenta. Elige otra o cambia de cuenta.");
-      if(isPerm(e)) return setGate("error",`Firebase ha rechazado el paso «${step}» al guardar tu cara (permission-denied). Las reglas publicadas no son las últimas: vuelve a pegar firestore.rules completo y pulsa Publicar.`);
+      if(isPerm(e)) return setGate("error",`Firebase ha rechazado guardar tu cara. Datos para el organizador → ${await this.claimDiag(pid,step,e)}`);
       return setGate("error",`No se pudo guardar tu jugador (${step}: ${m}).`);
     }
     this.myPlayer=pid; S.me=pid; localStorage.setItem("am_me",pid);
