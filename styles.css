@@ -875,3 +875,74 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .ptest{margin-top:14px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px;text-align:left}
 .ptest .btn{width:100%}
 .ptest-out{font-size:13px;line-height:1.5;margin-top:8px;color:var(--ice)}
+
+/* =================================================================
+   ANÁLISIS DE RIVAL · informe de scouting
+   ================================================================= */
+.pf-scout{width:100%;margin:12px 0 4px;min-height:48px;font-size:16px;font-weight:800}
+.sc{--sc-good:#22C55E;--sc-mid:#F5B32B;--sc-bad:#EF4444;--sc-accent:#3E86E8;background:linear-gradient(180deg,#071A45,#0A2357 40%,#F3F6FB 40.1%);margin:-16px -16px 0;padding:18px 16px 16px}
+.sc-head{display:flex;gap:14px;align-items:center;color:#fff}
+.sc-av{width:84px;height:96px;object-fit:cover;object-position:50% 15%;border-radius:12px;background:var(--c);box-shadow:0 0 0 3px #fff,0 0 0 6px var(--c),0 10px 30px rgba(0,0,0,.4)}
+.sc-kick{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:800}
+.sc-name{font-family:var(--display);font-style:italic;font-weight:900;text-transform:uppercase;font-size:clamp(26px,7vw,40px);line-height:.95;margin:2px 0;color:#fff}
+.sc-nick{color:#BFD0EE;font-size:14px}
+.sc-meta{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 12px;color:#DCE6F7;font-size:13px;font-weight:700}
+.sc-meta span{background:rgba(255,255,255,.1);padding:5px 9px;border-radius:999px}
+.sc-hand{margin-left:auto;background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:5px 10px;font-weight:800;font-size:13px}
+.sc-hand small{opacity:.7;font-weight:600}
+.sc-grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.sc-grid{grid-template-columns:1.1fr 1fr}}
+.sc-grid2{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+@media(min-width:760px){.sc-grid2{grid-template-columns:1fr 1fr}}
+.sc-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:560px){.sc-grid3{grid-template-columns:1fr}}
+.sc-card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 6px 22px rgba(6,23,63,.12);border:1px solid #E3EAF4}
+.sc-card.good{border-left:6px solid var(--sc-good)}.sc-card.bad{border-left:6px solid var(--sc-bad)}
+.sc-card.plan{background:#0B2A6B;color:#fff;border:0}.sc-card.plan .sc-k{color:var(--gold)}
+.sc-card.plan ul{margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.45}.sc-card.plan li{margin:4px 0}
+.sc-side-cards{display:grid;gap:12px;align-content:start}
+.sc-k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#5B6A85}
+.sc-v{font-family:var(--display);font-weight:900;font-style:italic;text-transform:uppercase;font-size:34px;line-height:1;margin:4px 0}
+.sc-v.sm{font-size:30px}
+.sc-s{font-size:13px;color:#5B6A85}
+.sc-courtbox{background:#0B1E4A;border:0;padding:10px}
+.sc-court{width:100%;max-width:420px;display:block;margin:0 auto;height:auto}
+.sc-lines rect,.sc-lines line{fill:none;stroke:#fff;stroke-width:2.4;opacity:.92}
+.sc-net{stroke:#F3F6FB;stroke-width:4;stroke-dasharray:2 3}
+.sc-side{fill:#fff;opacity:.55;font-size:10px;font-weight:800;letter-spacing:.2em;text-anchor:middle}
+.sc-side.big{font-size:15px;opacity:.35}
+.sc-dot{stroke:#fff;stroke-width:2;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35));opacity:.93}
+.sc-spot.off .sc-dot{stroke-dasharray:3 3;stroke-opacity:.6}
+.sc-lbl{fill:#fff;font-size:10.5px;font-weight:900;text-anchor:middle;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2.5px}
+.sc-cnt{fill:#fff;font-size:9.5px;font-weight:800;text-anchor:middle;opacity:.9;paint-order:stroke;stroke:rgba(0,0,0,.4);stroke-width:2.5px}
+.sc-target{fill:none;stroke:#FFE14D;stroke-width:3;animation:scPulse 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.sc-target.t2{animation-delay:.9s}
+@keyframes scPulse{0%{opacity:.95;transform:scale(.85)}100%{opacity:0;transform:scale(1.45)}}
+.sc-aim line{stroke:#FFE14D;stroke-width:2.5;stroke-dasharray:6 6;animation:scDash 1.2s linear infinite}
+@keyframes scDash{to{stroke-dashoffset:-24}}
+.sc-aimtxt{fill:#FFE14D;font-size:13px;font-weight:900;text-anchor:middle;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:3px}
+.lite .sc-target,.lite .sc-aim line{animation:none}
+@media (prefers-reduced-motion:reduce){.sc-target,.sc-aim line{animation:none}}
+.sc-legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;color:#DCE6F7;font-size:12px;font-weight:700;margin-top:8px}
+.sc-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.sc-legend .mini{color:#9FB3D6}
+.sc-gauge{margin-top:8px}.sc-gtrack{height:10px;border-radius:999px;background:linear-gradient(90deg,#EF4444,#F5B32B 50%,#22C55E);position:relative}
+.sc-gtrack i{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;background:#0B1E4A;border-radius:2px;box-shadow:0 0 0 2px #fff;left:0}
+.sc-gtrack i{left:var(--x,0)}
+.sc-gv{font-size:13px;color:#5B6A85;margin-top:6px}.sc-gv b{font-family:var(--display);font-size:24px;color:#0B1E4A}
+.sc-bars{display:grid;gap:6px;margin-top:8px}
+.sc-brow{display:grid;grid-template-columns:1fr 76px 1fr;align-items:center;gap:6px;font-size:13px}
+.sc-brow b{text-align:center;font-weight:800}
+.sc-bl,.sc-br{position:relative;height:18px;background:#F1F4FA;border-radius:6px;overflow:hidden;display:flex;align-items:center}
+.sc-bl{justify-content:flex-end}.sc-bl i{position:absolute;right:0;top:0;bottom:0;background:var(--sc-bad);border-radius:6px 0 0 6px}
+.sc-br i{position:absolute;left:0;top:0;bottom:0;background:var(--sc-good);border-radius:0 6px 6px 0}
+.sc-bl em,.sc-br em{position:relative;font-style:normal;font-weight:900;font-size:11px;padding:0 6px;color:#0B1E4A}
+.good-t{color:#15803D}.bad-t{color:#B91C1C}
+.sc-cond{display:grid;gap:8px;margin-top:8px}
+.sc-cond>div{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;font-size:13px}
+.sc-cond .good{background:#E8F8EE}.sc-cond .bad{background:#FDECEC}
+.sc-cond em{font-style:normal;font-family:var(--display);font-weight:900;font-size:18px}
+.sc-locked{background:#fff;border-radius:14px;padding:22px;text-align:center;margin-top:16px;box-shadow:0 6px 22px rgba(6,23,63,.12)}
+.sc-lock{font-size:34px}.sc-locked p{color:#5B6A85;font-size:14px}
+.sc-foot{font-size:12px;color:#5B6A85;margin:14px 2px 0;line-height:1.4}
+.sc-admin{margin:10px 0 14px}.sc-admin .btn{margin-top:6px}
