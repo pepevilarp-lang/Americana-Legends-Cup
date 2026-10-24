@@ -125,7 +125,9 @@ const Store = {
         : `No se pudo conectar con Firebase (${c}). Revisa la conexión y reintenta.`);
       return;
     }
-    const user=await new Promise(res=>{ const un=firebase.auth().onAuthStateChanged(u=>{ if(un) un(); res(u); }); });
+    let user=await new Promise(res=>{ const un=firebase.auth().onAuthStateChanged(u=>{ if(un) un(); res(u); }); });
+    /* Sesión anónima de la primera versión de la app: no sirve (no tiene correo). Se descarta y se pide Google. */
+    if(user&&(user.isAnonymous||!user.email)){ try{ await firebase.auth().signOut(); }catch(_){} ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k)); user=null; }
     const cameBack=sessionStorage.getItem("am_redirect")==="1"; sessionStorage.removeItem("am_redirect");
     if(!user){
       /* Si volvemos de Google sin sesión, decimos por qué en vez de enseñar otra vez el botón sin más */
@@ -138,6 +140,7 @@ const Store = {
   /* Orden: cuenta de Google -> su cara (una vez por cuenta) -> avisos (una vez por dispositivo) -> PIN (una vez por cuenta) -> app */
   async afterLogin(){
     const u=firebase.auth().currentUser; if(!u){ setGate("login"); return; }
+    if(u.isAnonymous||!u.email){ try{ await firebase.auth().signOut(); }catch(_){} setGate("login","Tu sesión era antigua. Entra con Google."); return; }
     setGate("loading","Comprobando tu cuenta…");
     try{
       const p=await this.db.collection("players").doc(u.uid).get();
