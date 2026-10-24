@@ -569,7 +569,8 @@ function playerProfileHtml(id){
   const sel=`<div class="pf-cmp"><label for="pcmp">Comparar con</label><select id="pcmp"><option value="">— nadie —</option>${PLAYERS.filter(x=>x.id!==id).map(x=>`<option value="${x.id}" ${cmpId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>`;
   const cmpTbl=cmpId?`<table class="cmp pf-cmpt"><tr><td style="color:${p.color}">${esc(p.first)}</td><td class="k">Radar</td><td style="color:${col(cmpId)}">${esc(P[cmpId].first)}</td></tr>${PF_AXES.map(([t,k])=>`<tr><td class="${Mi[k]>=Mc[k]?"better":""}">${Math.round(Mi[k])}</td><td class="k">${t}</td><td class="${Mc[k]>Mi[k]?"better":""}">${Math.round(Mc[k])}</td></tr>`).join("")}</table>`:"";
   const bio=(p.nick||p.bio)?`<div class="bio" style="--c:${p.color}">${p.nick?`<b>“${esc(p.nick)}”</b>`:""}${p.style?`<span>${esc(p.style)}</span>`:""}${p.bio?`<p>${esc(p.bio)}</p>`:""}</div>`:"";
-  return bio
+  const scoutBtn=`<button class="btn ball pf-scout" data-x="scout" data-id="${id}">🔎 ${S.me===id?"Ver mi informe de scouting":"Analizar rival"}</button>`;
+  return bio+scoutBtn
     +`<h3 class="pf-h">Números <small>(puesto en la liga entre paréntesis)</small></h3><div class="pf-stats">${stats}</div>`
     +`<div class="pf-two"><div><h3 class="pf-h">Perfil</h3><div class="panel pf-radarbox">${pfRadar(Mi,Mc,p,cmpId)}<div class="pf-legend"><i style="background:${p.color}"></i>${esc(p.first)}${cmpId?` <i class="dash" style="border-color:${col(cmpId)}"></i>${esc(P[cmpId].first)}`:""}</div></div></div>`
     +`<div>${sel}${cmpTbl}<h3 class="pf-h">Últimos 10</h3>${form}</div></div>`
@@ -613,7 +614,7 @@ window.pushEnableGate=async function(btn){
    ===================================================================== */
 const SV={
   scale5perf:["Muy malo","Malo","Normal","Bueno","Muy bueno"],
-  golpes:[["saque","Saque"],["derecha","Derecha"],["reves","Revés"],["volea","Volea"],["globo","Globo"],["remate","Remate"],["resto","Resto"]],
+  golpes:[["saque","Saque"],["derecha","Derecha"],["reves","Revés"],["volea","Volea"],["dejada","Dejada"],["globo","Globo"],["remate","Remate"],["resto","Resto"]],
   pista:["Muy lenta","Lenta","En condiciones normales","Rápida","Muy rápida","Con mucha tierra suelta","Con poca tierra / pista dura","Irregular o con baches"],
   clima:["Perfectas","Calor intenso","Frío","Viento ligero","Mucho viento","Humedad alta","Llovizna","Partido después de lluvia / pista pesada","Mala visibilidad"],
   fisico:["Muy mal","Mal","Normal","Bien","Muy bien"],
@@ -676,7 +677,7 @@ function svRender(){
       ${last?`<button class="btn ball" data-sv-nav="send" ${ok?"":"disabled"}>Enviar encuesta</button>`
         :`<button class="btn ball" data-sv-nav="next" ${ok?"":"disabled"}>Siguiente →</button>`}
     </div>
-    <p class="sv-note">Tus respuestas son privadas: solo las ve el organizador, en cifras agregadas.</p>
+    <p class="sv-note">Tus respuestas alimentan el «Análisis de rival» solo en cifras agregadas (a partir de 2 encuestas). Nunca se muestran respuestas sueltas ni tu comentario.</p>
   </div>`;
 }
 document.addEventListener("click",async e=>{
@@ -699,7 +700,18 @@ async function svSubmit(){
     q1:a.q1,q2:a.q2,q3_confianza:a.q3a,q3_menos_confianza:a.q3b,q4:a.q4,q5:a.q5,q6:a.q6,q7:a.q7,q8:a.q8,q9:a.q9,comentario:(a.q10||"").slice(0,300)
   };
   try{
-    await Store.db.collection("surveys").doc(d.id).update({status:"completed",answers,sentAt:Date.now()});
+    const sref=Store.db.collection("surveys").doc(d.id), stref=Store.db.collection("survey_stats").doc(d.playerId);
+    try{
+      await Store.db.runTransaction(async t=>{
+        const st=await t.get(stref);
+        t.update(sref,{status:"completed",answers,sentAt:Date.now()});
+        t.set(stref,statsAdd(st.exists?st.data():null,d.playerId,answers,getMatch(d.matchId),d.id));
+      });
+      delete SC_CACHE[d.playerId];
+    }catch(e2){
+      if(!isPerm(e2)) throw e2;
+      await sref.update({status:"completed",answers,sentAt:Date.now()});   // el organizador puede recalcular las cifras luego
+    }
   }catch(err){
     console.error(err); toast("No se pudo enviar. Revisa la conexión y pulsa otra vez.");
     const b=document.querySelector("[data-sv-nav='send']"); if(b){ b.disabled=false; b.textContent="Enviar encuesta"; }
@@ -784,6 +796,7 @@ function vEncuestas(){
   const avg=key=>{ const map={"Muy malo":1,"Malo":2,"Normal":3,"Bueno":4,"Muy bueno":5}; const v=done.map(x=>map[x.answers&&x.answers[key]]).filter(Boolean); return v.length?(v.reduce((s,n)=>s+n,0)/v.length).toFixed(1):"–"; };
   const byMatch=Object.values(all.reduce((acc,x)=>{ (acc[x.matchId]=acc[x.matchId]||{id:x.matchId,c:0,n:0}); acc[x.matchId].n++; if(x.status==="completed") acc[x.matchId].c++; return acc; },{}));
   return `<h2>Encuestas</h2><p class="sub">Solo cifras agregadas. Las respuestas individuales no se muestran a nadie.</p>
+    <div class="panel sc-admin"><b>Análisis de rival</b><p class="mini">Recalcula las cifras de cada jugador con todas las encuestas respondidas, también las anteriores a esta función. Avisa al grupo antes.</p><button class="btn ball" data-x="scoutrebuild">🔄 Recalcular análisis de rival</button></div>
     <div class="kpis"><div class="kpi"><small>Completadas</small><b>${done.length}</b></div><div class="kpi"><small>Pendientes</small><b>${pend.length}</b></div>
     <div class="kpi good"><small>Rendimiento propio (media)</small><b>${avg("q1")}/5</b></div><div class="kpi sky"><small>Rendimiento del rival (media)</small><b>${avg("q2")}/5</b></div></div>
     <div class="grid2" style="margin-top:14px">${bars("Pista",SV.pista,"q4")}${bars("Clima",SV.clima,"q5")}${bars("Físico",SV.fisico,"q6")}${bars("Deportividad",SV.deport,"q7")}${bars("¿Refleja el resultado lo ocurrido?",SV.refl,"q8")}${bars("Factor decisivo",SV.factor,"q9")}
@@ -832,6 +845,155 @@ async function pushTest(out){
   document.addEventListener("click",ev=>{ if(ev.target.closest('[data-x="pushtest"]')) pushTest(document.getElementById("ptest-out")); });
 })();
 
-window.Features={Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
+/* =====================================================================
+   ANÁLISIS DE RIVAL · informe de scouting a partir de sus encuestas
+   Privacidad: solo cifras agregadas (colección survey_stats), nunca respuestas sueltas ni comentarios,
+   y solo a partir de SC_MIN encuestas. Las reglas impiden leer las encuestas individuales.
+   ===================================================================== */
+const SC_MIN=2;
+function statsAdd(cur,pid,ans,m,sid){
+  const s=cur?JSON.parse(JSON.stringify(cur)):{n:0,w:0,l:0};
+  s.n=(s.n||0)+1; s.w=s.w||0; s.l=s.l||0; s.last=sid||s.last||""; s.t=Date.now(); s.pid=pid;
+  const inc=(k,v)=>{ if(!v) return; s[k]=s[k]||{}; s[k][v]=(s[k][v]||0)+1; };
+  inc("q1",ans.q1); inc("q3a",ans.q3_confianza); inc("q3b",ans.q3_menos_confianza);
+  inc("q4",ans.q4); inc("q5",ans.q5); inc("q6",ans.q6); inc("q8",ans.q8); inc("q9",ans.q9);
+  const r=m&&result(m);
+  if(r&&m.a&&m.b){
+    const won=r.w===(m.a===pid?"a":"b"); won?s.w++:s.l++;
+    const c=(k,v)=>{ if(!v) return; s[k]=s[k]||{}; s[k][v]=s[k][v]||{w:0,l:0}; s[k][v][won?"w":"l"]++; };
+    c("c4",ans.q4); c("c5",ans.q5);
+  }
+  return s;
+}
+const SC_CACHE={};
+async function scoutLoad(id){
+  const d=await Store.db.collection("survey_stats").doc(id).get();
+  SC_CACHE[id]={at:Date.now(),s:d.exists?d.data():null}; return SC_CACHE[id].s;
+}
+const SC_POS={ Saque:[96,10], Resto:[204,10], Derecha:[98,92], "Revés":[202,92], Globo:[150,58], Dejada:[150,180], Volea:[104,232], Remate:[196,224] };
+const SC_TIP={
+  Saque:"Mete presión al resto: su saque no le da confianza. Adelántate un paso.",
+  Derecha:"Carga el juego a su derecha: es el golpe donde menos confía.",
+  "Revés":"Juega cruzado y profundo a su revés: es su lado flojo.",
+  Volea:"Hazle subir a la red con una dejada y pásale: no se siente cómodo voleando.",
+  Dejada:"Quédate atrás sin miedo: casi no se fía de su dejada.",
+  Globo:"Sube a la red cuando puedas: su globo no le da seguridad.",
+  Remate:"Usa el globo alto: no se siente seguro rematando.",
+  Resto:"Saca fuerte y juega el primer golpe: el resto es su punto flaco."
+};
+const SC_AVOID={
+  Saque:"Su saque es su arma: resta con margen y alarga el punto.",
+  Derecha:"Evita su derecha: es donde más confía.",
+  "Revés":"Ojo con su revés: es su golpe de confianza.",
+  Volea:"No le dejes subir a la red: ahí se siente fuerte.",
+  Dejada:"Atento a la dejada: la usa con confianza. Juega más cerca de la línea.",
+  Globo:"Si subes a la red, cuidado con su globo.",
+  Remate:"No le regales globos cortos: remata con confianza.",
+  Resto:"Varía el saque: resta con confianza."
+};
+function scAvg(map,scale){ let t=0,n=0; Object.entries(map||{}).forEach(([k,v])=>{ const i=scale.indexOf(k); if(i>=0){ t+=(i+1)*v; n+=v; } }); return n?t/n:null; }
+function scTop(map){ const e=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]); return e.length?e[0]:null; }
+function scCourt(s,id,hand){
+  const n=s.n, names=SV.golpes.map(g=>g[1]);
+  const data=names.map(nmS=>{ const plus=(s.q3a||{})[nmS]||0, minus=(s.q3b||{})[nmS]||0; return {nmS,plus,minus,use:plus+minus,score:(plus-minus)/n}; });
+  const maxUse=Math.max(1,...data.map(d=>d.use));
+  const weak=data.filter(d=>d.minus>0).sort((a,b)=>b.minus-a.minus||a.score-b.score)[0];
+  const X=x=>hand==="zurdo"?300-x:x;
+  const fill=sc=>sc>=0.25?"var(--sc-good)":sc<=-0.25?"var(--sc-bad)":"var(--sc-mid)";
+  const spots=data.map(d=>{ const [x0,y]=SC_POS[d.nmS]||[150,150], x=X(x0), r=d.use?12+15*Math.sqrt(d.use/maxUse):9;
+    const isWeak=weak&&weak.nmS===d.nmS;
+    return `<g class="sc-spot${d.use?"":" off"}">
+      ${isWeak?`<circle cx="${x}" cy="${y}" r="${(r+9).toFixed(1)}" class="sc-target"/><circle cx="${x}" cy="${y}" r="${(r+9).toFixed(1)}" class="sc-target t2"/>`:""}
+      <circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" fill="${d.use?fill(d.score):"rgba(255,255,255,.18)"}" class="sc-dot"/>
+      <text x="${x}" y="${y+4}" class="sc-lbl">${esc(d.nmS)}</text>
+      ${d.use?`<text x="${x}" y="${(y+r+12).toFixed(1)}" class="sc-cnt">+${d.plus} / −${d.minus}</text>`:""}
+    </g>`; }).join("");
+  const target=weak?(()=>{ const [x0,y]=SC_POS[weak.nmS]; const x=X(x0); return `<g class="sc-aim"><line x1="150" y1="430" x2="${x}" y2="${y+6}" /><text x="150" y="452" class="sc-aimtxt">🎯 Ataca aquí: ${esc(weak.nmS)}</text></g>`; })():"";
+  return `<svg class="sc-court" viewBox="0 -26 300 526" role="img" aria-label="Mapa de confianza por golpe">
+    <defs><linearGradient id="scClay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D2693C"/><stop offset="1" stop-color="#B4532C"/></linearGradient>
+      <pattern id="scGrain" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="rgba(255,255,255,.06)"/><circle cx="4" cy="4" r=".5" fill="rgba(0,0,0,.08)"/></pattern></defs>
+    <rect x="6" y="-20" width="288" height="514" rx="10" fill="url(#scClay)"/><rect x="6" y="-20" width="288" height="514" rx="10" fill="url(#scGrain)"/>
+    <rect x="6" y="250" width="288" height="244" fill="rgba(4,14,40,.38)"/>
+    <g class="sc-lines"><rect x="40" y="40" width="220" height="420"/><line x1="62" y1="40" x2="62" y2="460"/><line x1="238" y1="40" x2="238" y2="460"/>
+      <line x1="62" y1="142" x2="238" y2="142"/><line x1="62" y1="358" x2="238" y2="358"/><line x1="150" y1="142" x2="150" y2="358"/>
+      <line x1="150" y1="40" x2="150" y2="46"/><line x1="150" y1="454" x2="150" y2="460"/></g>
+    <line x1="28" y1="250" x2="272" y2="250" class="sc-net"/><text x="150" y="268" class="sc-side">RED</text>
+    <text x="150" y="400" class="sc-side big">TU CAMPO</text>
+    ${target}${spots}
+  </svg>`;
+}
+function scoutHtml(id,s){
+  const p=P[id], hand=localStorage.getItem("am_hand_"+id)||"diestro";
+  const head=`<div class="sc-head" style="--c:${p.color}"><img src="${IMG(id)}" alt="" class="sc-av"><div><div class="sc-kick">Informe de scouting</div><h2 class="sc-name">${esc(p.name)}</h2><div class="sc-nick">“${esc(p.nick||"")}”</div></div></div>`;
+  if(!s||(s.n||0)<SC_MIN) return head+`<div class="sc-locked"><div class="sc-lock">🔒</div><b>Todavía no hay datos suficientes</b><p>El informe se abre con ${SC_MIN} encuestas respondidas. ${esc(p.first)} lleva ${(s&&s.n)||0}. Así nadie puede deducir qué contestó en un partido concreto.</p></div>`;
+  const n=s.n, sa=scTop(s.q3a), sb=scTop(s.q3b);
+  const fis=scAvg(s.q6,SV.fisico), self=scAvg(s.q1,SV.scale5perf);
+  const fac=scTop(s.q9), real=["Bastante","Totalmente"].reduce((t,k)=>t+((s.q8||{})[k]||0),0)/n;
+  const cond=["c4","c5"].flatMap(k=>Object.entries(s[k]||{}).map(([v,r])=>({v,k,w:r.w,l:r.l,g:r.w+r.l,pct:r.w/Math.max(1,r.w+r.l)}))).filter(c=>c.g>=1);
+  const best=cond.filter(c=>c.w>0).sort((a,b)=>b.pct-a.pct||b.g-a.g)[0], worst=cond.filter(c=>c.l>0).sort((a,b)=>a.pct-b.pct||b.g-a.g)[0];
+  const pct=x=>Math.round(x/n*100)+"%";
+  const gauge=(v,lbl)=>{ const w=v?((v-1)/4*100):0; return `<div class="sc-gauge"><div class="sc-gtrack"><i style="--x:${w.toFixed(0)}%"></i></div><div class="sc-gv"><b>${v?v.toFixed(1):"–"}</b>/5 · ${esc(lbl)}</div></div>`; };
+  const fisL=v=>!v?"":v>=4.3?"Llega muy fino":v>=3.5?"Llega bien":v>=2.7?"Normal":"Suele llegar justo";
+  const selfL=v=>!v?"":v>=4?"Se ve fuerte":v>=3?"Equilibrado":"Muy autocrítico";
+  const plan=[sb?SC_TIP[sb[0]]:"", sa?SC_AVOID[sa[0]]:"", worst?`Le cuesta con ${worst.v.toLowerCase()} (${worst.w}-${worst.l}).`:"", fis&&fis<3?"Alarga los puntos: físicamente suele llegar justo.":""].filter(Boolean);
+  const bars=SV.golpes.map(g=>g[1]).map(k=>{ const pl=(s.q3a||{})[k]||0, mi=(s.q3b||{})[k]||0;
+    return `<div class="sc-brow"><span class="sc-bl">${mi?`<i style="width:${(mi/n*100).toFixed(0)}%"></i>`:""}<em>${mi||""}</em></span><b>${esc(k)}</b><span class="sc-br">${pl?`<i style="width:${(pl/n*100).toFixed(0)}%"></i>`:""}<em>${pl||""}</em></span></div>`; }).join("");
+  const facBars=Object.entries(s.q9||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="vbar"><span>${esc(k)}</span><div class="vtrack"><span style="width:${(v/n*100).toFixed(0)}%;background:var(--sc-accent)"></span></div><b class="num">${pct(v)}</b></div>`).join("");
+  return head
+   +`<div class="sc-meta"><span>📋 ${n} encuestas</span><span>🏆 ${s.w||0}V · ${s.l||0}D</span>
+      <button class="sc-hand" data-x="scouthand" data-id="${id}">✋ ${hand==="zurdo"?"Zurdo":"Diestro"} <small>(cambiar)</small></button></div>`
+   +`<div class="sc-grid">
+      <div class="sc-card sc-courtbox">${scCourt(s,id,hand)}
+        <div class="sc-legend"><span><i style="background:var(--sc-good)"></i>Confía</span><span><i style="background:var(--sc-mid)"></i>Depende</span><span><i style="background:var(--sc-bad)"></i>Le cuesta</span><span class="mini">Tamaño = cuántas veces lo nombra</span></div>
+      </div>
+      <div class="sc-side-cards">
+        <div class="sc-card good"><div class="sc-k">Arma principal</div><div class="sc-v">${sa?esc(sa[0]):"–"}</div><div class="sc-s">${sa?`La elige como golpe de confianza en el ${pct(sa[1])} de sus partidos`:""}</div></div>
+        <div class="sc-card bad"><div class="sc-k">Punto débil</div><div class="sc-v">${sb?esc(sb[0]):"–"}</div><div class="sc-s">${sb?`Lo señala como su peor golpe en el ${pct(sb[1])} de sus partidos`:""}</div></div>
+        <div class="sc-card plan"><div class="sc-k">🧠 Plan de partido</div><ul>${plan.map(t=>`<li>${esc(t)}</li>`).join("")||"<li>Sin pistas claras todavía.</li>"}</ul></div>
+      </div>
+    </div>`
+   +`<div class="sc-grid3">
+      <div class="sc-card"><div class="sc-k">💪 Físico</div>${gauge(fis,fisL(fis))}</div>
+      <div class="sc-card"><div class="sc-k">🪞 Cómo se ve</div>${gauge(self,selfL(self))}</div>
+      <div class="sc-card"><div class="sc-k">⚖️ ¿Acepta el resultado?</div><div class="sc-v sm">${Math.round(real*100)}%</div><div class="sc-s">de las veces cree que el marcador refleja lo jugado${real<0.5?" · tiende a buscar excusas 😉":""}</div></div>
+    </div>`
+   +`<div class="sc-grid2">
+      <div class="sc-card"><div class="sc-k">Golpes · <span class="bad-t">le cuesta</span> vs <span class="good-t">confía</span></div><div class="sc-bars">${bars}</div></div>
+      <div class="sc-card"><div class="sc-k">🔑 Qué decide sus partidos</div>${facBars||"<div class='mini'>Sin datos</div>"}
+        <div class="sc-k" style="margin-top:14px">🌦️ Condiciones</div>
+        <div class="sc-cond">${best?`<div class="good"><b>Rinde mejor</b><span>${esc(best.v)}</span><em>${best.w}-${best.l}</em></div>`:""}${worst?`<div class="bad"><b>Sufre con</b><span>${esc(worst.v)}</span><em>${worst.w}-${worst.l}</em></div>`:""}${!best&&!worst?"<div class='mini'>Aún sin partidos con resultado</div>":""}</div>
+      </div>
+    </div>`
+   +`<p class="sc-foot">Basado en lo que ${esc(p.first)} responde en sus propias encuestas. Solo cifras agregadas: nunca se muestran respuestas sueltas ni comentarios. El mapa sitúa cada golpe en su zona habitual de la pista; no registra posiciones reales.</p>`;
+}
+async function openScout(id){
+  S.modal=()=>openScout(id);
+  const cached=SC_CACHE[id];
+  showModal(`<div class="sheet-body sc" id="sc-body">${cached?scoutHtml(id,cached.s):`<div class="empty">Preparando el informe…</div>`}</div>`);
+  if(!cached||Date.now()-cached.at>60000){
+    try{ const s=await scoutLoad(id); const b=document.getElementById("sc-body"); if(b) b.innerHTML=scoutHtml(id,s); }
+    catch(e){ console.error(e); const b=document.getElementById("sc-body"); if(b) b.innerHTML=`<div class="empty">No se pudo cargar el informe${isPerm(e)?": falta publicar las reglas nuevas de Firebase":""}.</div>`; }
+  }
+}
+document.addEventListener("click",ev=>{
+  const a=ev.target.closest('[data-x="scout"]'); if(a){ openScout(a.dataset.id); return; }
+  const h=ev.target.closest('[data-x="scouthand"]'); if(h){ const id=h.dataset.id, k="am_hand_"+id; localStorage.setItem(k,(localStorage.getItem(k)||"diestro")==="zurdo"?"diestro":"zurdo"); const b=document.getElementById("sc-body"); if(b&&SC_CACHE[id]) b.innerHTML=scoutHtml(id,SC_CACHE[id].s); }
+});
+/* Organizador: recalcular las cifras de todos a partir de TODAS las encuestas respondidas (incluye las antiguas) */
+async function scoutRebuild(btn){
+  if(!Store.isAdmin) return;
+  if(!confirm("¿Recalcular el análisis de rival con todas las encuestas respondidas, también las antiguas? Avisa antes al grupo.")) return;
+  btn.disabled=true; btn.textContent="Recalculando…";
+  try{
+    const snap=await Store.db.collection("surveys").get();
+    const by={}; snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="completed"&&x.answers)
+      .sort((a,b)=>(a.sentAt||0)-(b.sentAt||0)).forEach(x=>{ by[x.playerId]=statsAdd(by[x.playerId]||null,x.playerId,x.answers,getMatch(x.matchId),x.id); });
+    for(const p of PLAYERS){ await Store.db.collection("survey_stats").doc(p.id).set(by[p.id]||{n:0,w:0,l:0,pid:p.id,t:Date.now(),last:""}); delete SC_CACHE[p.id]; }
+    toast("Análisis de rival recalculado"); btn.textContent="✓ Recalculado";
+  }catch(e){ console.error(e); btn.disabled=false; btn.textContent="🔄 Recalcular análisis de rival"; toast(isPerm(e)?"Sin permiso: publica las reglas nuevas":"No se pudo recalcular"); }
+}
+document.addEventListener("click",ev=>{ const b=ev.target.closest('[data-x="scoutrebuild"]'); if(b) scoutRebuild(b); });
+
+window.Features={statsAdd,scoutHtml,openScout,Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
 schedule();
 })();
