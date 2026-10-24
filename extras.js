@@ -677,7 +677,7 @@ function svRender(){
       ${last?`<button class="btn ball" data-sv-nav="send" ${ok?"":"disabled"}>Enviar encuesta</button>`
         :`<button class="btn ball" data-sv-nav="next" ${ok?"":"disabled"}>Siguiente →</button>`}
     </div>
-    <p class="sv-note">Tus respuestas alimentan el «Análisis de rival» solo en cifras agregadas (a partir de 2 encuestas). Nunca se muestran respuestas sueltas ni tu comentario.</p>
+    <p class="sv-note">Tus respuestas alimentan el «Análisis de rival» en cifras agregadas. Tu comentario nunca se muestra a nadie.</p>
   </div>`;
 }
 document.addEventListener("click",async e=>{
@@ -847,10 +847,9 @@ async function pushTest(out){
 
 /* =====================================================================
    ANÁLISIS DE RIVAL · informe de scouting a partir de sus encuestas
-   Privacidad: solo cifras agregadas (colección survey_stats), nunca respuestas sueltas ni comentarios,
-   y solo a partir de SC_MIN encuestas. Las reglas impiden leer las encuestas individuales.
+   Solo cifras agregadas (colección survey_stats): nunca respuestas sueltas ni comentarios.
    ===================================================================== */
-const SC_MIN=2;
+const SC_MIN=1;
 function statsAdd(cur,pid,ans,m,sid){
   const s=cur?JSON.parse(JSON.stringify(cur)):{n:0,w:0,l:0};
   s.n=(s.n||0)+1; s.w=s.w||0; s.l=s.l||0; s.last=sid||s.last||""; s.t=Date.now(); s.pid=pid;
@@ -870,6 +869,7 @@ async function scoutLoad(id){
   const d=await Store.db.collection("survey_stats").doc(id).get();
   SC_CACHE[id]={at:Date.now(),s:d.exists?d.data():null}; return SC_CACHE[id].s;
 }
+const SHOTS=()=>SV.golpes.map(g=>g[1]);
 const SC_POS={ Saque:[96,10], Resto:[204,10], Derecha:[98,92], "Revés":[202,92], Globo:[150,58], Dejada:[150,180], Volea:[104,232], Remate:[196,224] };
 const SC_TIP={
   Saque:"Mete presión al resto: su saque no le da confianza. Adelántate un paso.",
@@ -891,108 +891,195 @@ const SC_AVOID={
   Remate:"No le regales globos cortos: remata con confianza.",
   Resto:"Varía el saque: resta con confianza."
 };
+/* Jugadas de pizarra: [tipo, desde, hasta, texto]. «b» = bola, «m» = movimiento. Coordenadas para rival diestro. */
+const SC_PLAYS={
+  "Revés":["Martillo al revés",[["b",[165,470],[205,168],"Saque abierto a su revés"],["b",[105,430],[212,72],"Cruzado profundo, otra vez a su revés"],["b",[160,330],[82,92],"Cuando flote la bola, al hueco de su derecha"]]],
+  Derecha:["Martillo a la derecha",[["b",[135,470],[95,168],"Saque abierto a su derecha"],["b",[195,430],[88,72],"Cruzado profundo, otra vez a su derecha"],["b",[140,330],[218,92],"Cuando flote la bola, al hueco de su revés"]]],
+  Volea:["Atráele a la red",[["b",[150,452],[124,208],"Dejada corta para que suba"],["m",[176,110],[176,226],"Él sube a la red"],["b",[118,350],[228,58],"Passing o globo por encima"]]],
+  Globo:["Presión en la red",[["b",[140,425],[206,74],"Aproximación profunda a su revés"],["m",[140,425],[150,300],"Sube a la red"],["b",[150,300],[72,112],"Volea al hueco: su globo no le salva"]]],
+  Remate:["Lluvia de globos",[["b",[150,452],[124,208],"Dejada para que suba"],["b",[150,445],[168,52],"Globo alto al fondo"],["b",[150,330],[230,100],"Ataca su devolución apurada"]]],
+  Saque:["Resto agresivo",[["m",[150,484],[150,446],"Adelántate a restar"],["b",[150,446],[206,96],"Resto profundo a su revés"],["b",[150,330],[80,80],"Ataca la bola corta"]]],
+  Resto:["Saque y primer golpe",[["b",[165,470],[96,166],"Saque abierto, que reste estirado"],["b",[150,420],[222,82],"Primer golpe al hueco contrario"]]],
+  Dejada:["Ancla y profundidad",[["b",[150,440],[150,70],"Profundo y alto al centro"],["b",[110,420],[216,70],"Cambia de dirección a la línea"]]]
+};
+const SC_DUELS=[["Saque","Resto","Tu saque contra su resto"],["Resto","Saque","Tu resto contra su saque"],["Derecha","Revés","Tu derecha contra su revés"],["Revés","Derecha","Tu revés contra su derecha"],["Dejada","Volea","Tu dejada contra su juego en la red"],["Globo","Remate","Tu globo contra su remate"],["Volea","Globo","Tu volea contra su globo"],["Remate","Globo","Tu remate contra su globo"]];
 function scAvg(map,scale){ let t=0,n=0; Object.entries(map||{}).forEach(([k,v])=>{ const i=scale.indexOf(k); if(i>=0){ t+=(i+1)*v; n+=v; } }); return n?t/n:null; }
 function scTop(map){ const e=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]); return e.length?e[0]:null; }
-function scCourt(s,id,hand){
-  const n=s.n, names=SV.golpes.map(g=>g[1]);
-  const data=names.map(nmS=>{ const plus=(s.q3a||{})[nmS]||0, minus=(s.q3b||{})[nmS]||0; return {nmS,plus,minus,use:plus+minus,score:(plus-minus)/n}; });
+function scScore(s,k){ if(!s||!s.n) return 0; return (((s.q3a||{})[k]||0)-((s.q3b||{})[k]||0))/s.n; }
+function scMotion(){ return !(document.body.classList.contains("lite")||matchMedia("(prefers-reduced-motion: reduce)").matches); }
+function scCourtLines(){ return `<g class="sx-lines"><rect x="40" y="40" width="220" height="420"/><line x1="62" y1="40" x2="62" y2="460"/><line x1="238" y1="40" x2="238" y2="460"/>
+  <line x1="62" y1="142" x2="238" y2="142"/><line x1="62" y1="358" x2="238" y2="358"/><line x1="150" y1="142" x2="150" y2="358"/><line x1="150" y1="40" x2="150" y2="46"/><line x1="150" y1="454" x2="150" y2="460"/></g>
+  <line x1="28" y1="250" x2="272" y2="250" class="sx-net"/>`; }
+function scClay(uid){ return `<defs><linearGradient id="clay${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D86E3E"/><stop offset=".5" stop-color="#C45E33"/><stop offset="1" stop-color="#A84C27"/></linearGradient>
+  <pattern id="grain${uid}" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="rgba(255,255,255,.07)"/><circle cx="4" cy="4" r=".5" fill="rgba(0,0,0,.09)"/></pattern>
+  ${["good","mid","bad"].map(k=>`<radialGradient id="h${k}${uid}"><stop offset="0" stop-color="var(--sx-${k})" stop-opacity=".95"/><stop offset=".55" stop-color="var(--sx-${k})" stop-opacity=".45"/><stop offset="1" stop-color="var(--sx-${k})" stop-opacity="0"/></radialGradient>`).join("")}</defs>
+  <rect x="6" y="-20" width="288" height="514" rx="12" fill="url(#clay${uid})"/><rect x="6" y="-20" width="288" height="514" rx="12" fill="url(#grain${uid})"/>
+  <rect x="6" y="250" width="288" height="244" fill="rgba(4,14,40,.42)"/>`; }
+const arc=(a,b,lift=60)=>{ const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2-lift; return `M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}`; };
+function scHeatCourt(s,hand){
+  const n=s.n, X=x=>hand==="zurdo"?300-x:x, mv=scMotion();
+  const data=SHOTS().map(k=>{ const plus=(s.q3a||{})[k]||0, minus=(s.q3b||{})[k]||0; return {k,plus,minus,use:plus+minus,score:(plus-minus)/n}; });
   const maxUse=Math.max(1,...data.map(d=>d.use));
   const weak=data.filter(d=>d.minus>0).sort((a,b)=>b.minus-a.minus||a.score-b.score)[0];
-  const X=x=>hand==="zurdo"?300-x:x;
-  const fill=sc=>sc>=0.25?"var(--sc-good)":sc<=-0.25?"var(--sc-bad)":"var(--sc-mid)";
-  const spots=data.map(d=>{ const [x0,y]=SC_POS[d.nmS]||[150,150], x=X(x0), r=d.use?12+15*Math.sqrt(d.use/maxUse):9;
-    const isWeak=weak&&weak.nmS===d.nmS;
-    return `<g class="sc-spot${d.use?"":" off"}">
-      ${isWeak?`<circle cx="${x}" cy="${y}" r="${(r+9).toFixed(1)}" class="sc-target"/><circle cx="${x}" cy="${y}" r="${(r+9).toFixed(1)}" class="sc-target t2"/>`:""}
-      <circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" fill="${d.use?fill(d.score):"rgba(255,255,255,.18)"}" class="sc-dot"/>
-      <text x="${x}" y="${y+4}" class="sc-lbl">${esc(d.nmS)}</text>
-      ${d.use?`<text x="${x}" y="${(y+r+12).toFixed(1)}" class="sc-cnt">+${d.plus} / −${d.minus}</text>`:""}
-    </g>`; }).join("");
-  const target=weak?(()=>{ const [x0,y]=SC_POS[weak.nmS]; const x=X(x0); return `<g class="sc-aim"><line x1="150" y1="430" x2="${x}" y2="${y+6}" /><text x="150" y="452" class="sc-aimtxt">🎯 Ataca aquí: ${esc(weak.nmS)}</text></g>`; })():"";
-  return `<svg class="sc-court" viewBox="0 -26 300 526" role="img" aria-label="Mapa de confianza por golpe">
-    <defs><linearGradient id="scClay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D2693C"/><stop offset="1" stop-color="#B4532C"/></linearGradient>
-      <pattern id="scGrain" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="rgba(255,255,255,.06)"/><circle cx="4" cy="4" r=".5" fill="rgba(0,0,0,.08)"/></pattern></defs>
-    <rect x="6" y="-20" width="288" height="514" rx="10" fill="url(#scClay)"/><rect x="6" y="-20" width="288" height="514" rx="10" fill="url(#scGrain)"/>
-    <rect x="6" y="250" width="288" height="244" fill="rgba(4,14,40,.38)"/>
-    <g class="sc-lines"><rect x="40" y="40" width="220" height="420"/><line x1="62" y1="40" x2="62" y2="460"/><line x1="238" y1="40" x2="238" y2="460"/>
-      <line x1="62" y1="142" x2="238" y2="142"/><line x1="62" y1="358" x2="238" y2="358"/><line x1="150" y1="142" x2="150" y2="358"/>
-      <line x1="150" y1="40" x2="150" y2="46"/><line x1="150" y1="454" x2="150" y2="460"/></g>
-    <line x1="28" y1="250" x2="272" y2="250" class="sc-net"/><text x="150" y="268" class="sc-side">RED</text>
-    <text x="150" y="400" class="sc-side big">TU CAMPO</text>
-    ${target}${spots}
-  </svg>`;
+  const tone=sc=>sc>=0.25?"good":sc<=-0.25?"bad":"mid";
+  const heat=data.filter(d=>d.use).map((d,i)=>{ const [x0,y]=SC_POS[d.k], x=X(x0), R=30+34*Math.sqrt(d.use/maxUse);
+    return `<circle cx="${x}" cy="${y}" r="${R.toFixed(1)}" fill="url(#h${tone(d.score)}M)" class="sx-heat" style="--d:${(0.15*i).toFixed(2)}s"/>`; }).join("");
+  const dots=data.map((d,i)=>{ const [x0,y]=SC_POS[d.k], x=X(x0), r=d.use?9+7*Math.sqrt(d.use/maxUse):6;
+    return `<g class="sx-spot${d.use?"":" off"}" style="--d:${(0.4+0.12*i).toFixed(2)}s">
+      <circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" class="sx-core ${d.use?"t-"+tone(d.score):""}"/>
+      <text x="${x}" y="${(y-r-5).toFixed(1)}" class="sx-lbl">${esc(d.k)}</text>
+      ${d.use?`<text x="${x}" y="${(y+r+11).toFixed(1)}" class="sx-cnt">+${d.plus} · −${d.minus}</text>`:""}</g>`; }).join("");
+  let aim="";
+  if(weak){ const [x0,y]=SC_POS[weak.k], x=X(x0), d=arc([150,440],[x,y+4],90);
+    aim=`<g class="sx-aim"><path d="${d}" class="sx-traj"/>
+      <circle cx="${x}" cy="${y}" r="22" class="sx-ring"/><circle cx="${x}" cy="${y}" r="22" class="sx-ring r2"/>
+      ${mv?`<circle r="5.5" class="sx-ball"><animateMotion dur="2.2s" repeatCount="indefinite" path="${d}" keyPoints="0;1;1" keyTimes="0;.75;1" calcMode="linear"/></circle>`:`<circle cx="${x}" cy="${y+4}" r="5.5" class="sx-ball"/>`}
+      <text x="150" y="476" class="sx-aimtxt">🎯 ATACA AQUÍ · ${esc(weak.k.toUpperCase())}</text></g>`; }
+  return {svg:`<svg class="sx-court" viewBox="0 -26 300 526" role="img" aria-label="Mapa de calor de sus golpes">${scClay("M")}${scCourtLines()}
+    <text x="150" y="268" class="sx-side">RED</text><text x="150" y="405" class="sx-side big">TU CAMPO</text>${heat}${aim}${dots}</svg>`, weak, data};
 }
-function scoutHtml(id,s){
-  const p=P[id], hand=localStorage.getItem("am_hand_"+id)||"diestro";
-  const head=`<div class="sc-head" style="--c:${p.color}"><img src="${IMG(id)}" alt="" class="sc-av"><div><div class="sc-kick">Informe de scouting</div><h2 class="sc-name">${esc(p.name)}</h2><div class="sc-nick">“${esc(p.nick||"")}”</div></div></div>`;
-  if(!s||(s.n||0)<SC_MIN) return head+`<div class="sc-locked"><div class="sc-lock">🔒</div><b>Todavía no hay datos suficientes</b><p>El informe se abre con ${SC_MIN} encuestas respondidas. ${esc(p.first)} lleva ${(s&&s.n)||0}. Así nadie puede deducir qué contestó en un partido concreto.</p></div>`;
-  const n=s.n, sa=scTop(s.q3a), sb=scTop(s.q3b);
-  const fis=scAvg(s.q6,SV.fisico), self=scAvg(s.q1,SV.scale5perf);
-  const fac=scTop(s.q9), real=["Bastante","Totalmente"].reduce((t,k)=>t+((s.q8||{})[k]||0),0)/n;
-  const cond=["c4","c5"].flatMap(k=>Object.entries(s[k]||{}).map(([v,r])=>({v,k,w:r.w,l:r.l,g:r.w+r.l,pct:r.w/Math.max(1,r.w+r.l)}))).filter(c=>c.g>=1);
+function scPlay(key,hand,idx){
+  const P0=SC_PLAYS[key]; if(!P0) return "";
+  const [name,steps]=P0, X=p=>hand==="zurdo"?[300-p[0],p[1]]:p, mv=scMotion(), slot=1.15, T=steps.length*slot+1.1;
+  const paths=steps.map((s,i)=>{ const a=X(s[1]), b=X(s[2]), d=s[0]==="m"?`M${a[0]},${a[1]} L${b[0]},${b[1]}`:arc(a,b,s[1][1]-s[2][1]>200?110:55);
+    const st=(i*slot)/T, en=(i*slot+0.95)/T;
+    return `<path d="${d}" class="sx-p ${s[0]}"/>
+      <g class="sx-num"><circle cx="${b[0]}" cy="${b[1]}" r="11"/><text x="${b[0]}" y="${b[1]+4}">${i+1}</text></g>
+      ${s[0]==="b"?(mv?`<circle r="5" class="sx-ball"><animateMotion dur="${T}s" repeatCount="indefinite" path="${d}" keyPoints="0;0;1;1" keyTimes="0;${st.toFixed(3)};${en.toFixed(3)};1" calcMode="linear"/><animate attributeName="opacity" dur="${T}s" repeatCount="indefinite" values=".15;1;1;.15;.15" keyTimes="0;${Math.max(st,0.001).toFixed(3)};${en.toFixed(3)};${Math.min(en+0.02,0.999).toFixed(3)};1"/></circle>`:`<circle cx="${b[0]}" cy="${b[1]}" r="5" class="sx-ball"/>`):""}`; }).join("");
+  return `<div class="sx-play" style="--d:${(0.1*idx).toFixed(2)}s">
+    <div class="sx-play-h"><span class="sx-tag">JUGADA ${idx+1}</span><b>${esc(name)}</b></div>
+    <svg viewBox="0 -26 300 526" class="sx-mini">${scClay("P"+idx)}${scCourtLines()}${paths}</svg>
+    <ol>${steps.map(s=>`<li class="${s[0]}">${esc(s[3])}</li>`).join("")}</ol></div>`;
+}
+function scRadar(s,me,color){
+  const ks=SHOTS(), n=ks.length, cx=150, cy=140, R=100;
+  const pt=(i,v)=>{ const a=-Math.PI/2+i*2*Math.PI/n, r=R*v; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+  const val=(st,k)=>(scScore(st,k)+1)/2;
+  const poly=st=>ks.map((k,i)=>pt(i,val(st,k)).map(x=>x.toFixed(1)).join(",")).join(" ");
+  const rings=[.25,.5,.75,1].map(g=>`<polygon points="${ks.map((_,i)=>pt(i,g).map(x=>x.toFixed(1)).join(",")).join(" ")}" class="sx-rg"/>`).join("");
+  const spokes=ks.map((_,i)=>{const [x,y]=pt(i,1); return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="sx-rg"/>`;}).join("");
+  const labels=ks.map((k,i)=>{const [x,y]=pt(i,1.2); return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" class="sx-rl">${esc(k)}</text>`;}).join("");
+  return `<svg viewBox="0 0 300 285" class="sx-radar">${rings}${spokes}
+    <circle cx="${cx}" cy="${cy}" r="${R/2}" class="sx-mid"/>
+    ${me&&me.n?`<polygon points="${poly(me)}" class="sx-me"/>`:""}
+    <polygon points="${poly(s)}" class="sx-him" style="--c:${color}"/>${labels}</svg>`;
+}
+function scThreat(s,fis,self){
+  const g=(s.w||0)+(s.l||0), wr=g?(s.w||0)/g:.5, fN=fis?(fis-1)/4:.5, sN=self?(self-1)/4:.5;
+  const v=Math.round(100*(0.55*wr+0.2*fN+0.25*sN));
+  const lbl=v>=75?"PELIGRO MÁXIMO":v>=58?"RIVAL DURO":v>=42?"PARTIDO ABIERTO":"ASEQUIBLE";
+  const C=263.9, off=C*(1-v/100), col=v>=75?"var(--sx-bad)":v>=58?"#FF8A3D":v>=42?"var(--sx-mid)":"var(--sx-good)";
+  return `<div class="sx-threat"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="bg"/><circle cx="50" cy="50" r="42" class="v" style="--off:${off.toFixed(1)};stroke:${col}"/></svg>
+    <div class="sx-tv"><b data-count="${v}">${v}</b><span>NIVEL DE AMENAZA</span><em style="color:${col}">${lbl}</em></div></div>`;
+}
+function scDonut(map,n){
+  const cols=["#3E86E8","#F5B32B","#22C55E","#EF4444","#A855F7","#14B8A6"], e=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]); let acc=0; const C=2*Math.PI*36;
+  const segs=e.map(([k,v],i)=>{ const len=C*v/n, s=`<circle cx="50" cy="50" r="36" class="sx-seg" style="stroke:${cols[i%6]};stroke-dasharray:${len.toFixed(1)} ${C.toFixed(1)};stroke-dashoffset:${(-acc).toFixed(1)}"/>`; acc+=len; return s; }).join("");
+  return `<div class="sx-donut"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" class="bg"/>${segs}</svg>
+    <ul>${e.map(([k,v],i)=>`<li><i style="background:${cols[i%6]}"></i>${esc(k)}<b>${Math.round(v/n*100)}%</b></li>`).join("")}</ul></div>`;
+}
+function scoutHtml(id,s,me){
+  const p=P[id], hand=localStorage.getItem("am_hand_"+id)||"diestro", self_=S.me===id;
+  const hero=extra=>`<div class="sx-hero" style="--c:${p.color}">
+    <div class="sx-smk s1"></div><div class="sx-smk s2"></div><div class="sx-grid-bg"></div>
+    <img class="sx-body" src="${BODY(id)}" alt="" onerror="this.src='${IMG(id)}'">
+    <div class="sx-scan"></div>
+    <div class="sx-ht"><div class="sx-stamp">EXPEDIENTE · ${self_?"PERSONAL":"CONFIDENCIAL"}</div>
+      <div class="sx-kick">Informe de scouting</div><h2 class="sx-name">${esc(p.name)}</h2><div class="sx-nick">“${esc(p.nick||"")}”</div>${extra||""}</div></div>`;
+  if(!s||(s.n||0)<SC_MIN) return hero()+`<div class="sx-locked"><div class="sx-lock">🔒</div><b>Aún no hay encuestas sumadas de ${esc(p.first)}</b>
+    <p>${Store.isAdmin?"Pulsa «🔄 Recalcular análisis de rival» en la pestaña Organizador para sumar las encuestas que ya ha respondido.":"En cuanto responda su primera encuesta, aquí aparecerá su informe. Las encuestas anteriores se suman cuando el organizador abre la app."}</p></div>`;
+  const n=s.n, sa=scTop(s.q3a), sb=scTop(s.q3b), fis=scAvg(s.q6,SV.fisico), self=scAvg(s.q1,SV.scale5perf), fac=s.q9||{};
+  const real=["Bastante","Totalmente"].reduce((t,k)=>t+((s.q8||{})[k]||0),0)/n;
+  const cond=["c4","c5"].flatMap(k=>Object.entries(s[k]||{}).map(([v,r])=>({v,w:r.w,l:r.l,g:r.w+r.l,pct:r.w/Math.max(1,r.w+r.l)}))).filter(c=>c.g>=1);
   const best=cond.filter(c=>c.w>0).sort((a,b)=>b.pct-a.pct||b.g-a.g)[0], worst=cond.filter(c=>c.l>0).sort((a,b)=>a.pct-b.pct||b.g-a.g)[0];
-  const pct=x=>Math.round(x/n*100)+"%";
-  const gauge=(v,lbl)=>{ const w=v?((v-1)/4*100):0; return `<div class="sc-gauge"><div class="sc-gtrack"><i style="--x:${w.toFixed(0)}%"></i></div><div class="sc-gv"><b>${v?v.toFixed(1):"–"}</b>/5 · ${esc(lbl)}</div></div>`; };
+  const court=scHeatCourt(s,hand);
+  const weakList=court.data.filter(d=>d.minus>0).sort((a,b)=>b.minus-a.minus||a.score-b.score).map(d=>d.k);
+  const playKeys=[...new Set([...weakList,"Revés"])].filter(k=>SC_PLAYS[k]).slice(0,2);
+  const plan=[sb?SC_TIP[sb[0]]:"", sa?SC_AVOID[sa[0]]:"", worst?`Le cuesta con ${worst.v.toLowerCase()} (${worst.w}-${worst.l}): si toca, juega con margen y alarga los puntos.`:"", fis&&fis<3?"Físicamente suele llegar justo: partido largo, bolas altas.":""].filter(Boolean);
+  const pct=x=>Math.round(x/n*100);
+  const gauge=(v,lbl,emo)=>{ const w=v?((v-1)/4*100):0; return `<div class="sx-gauge"><div class="sx-gk">${emo}</div><div class="sx-gb"><div class="sx-gtrack"><i style="--w:${w.toFixed(0)}%"></i></div><div class="sx-gv"><b>${v?v.toFixed(1):"–"}</b><small>/5</small> ${esc(lbl)}</div></div></div>`; };
   const fisL=v=>!v?"":v>=4.3?"Llega muy fino":v>=3.5?"Llega bien":v>=2.7?"Normal":"Suele llegar justo";
   const selfL=v=>!v?"":v>=4?"Se ve fuerte":v>=3?"Equilibrado":"Muy autocrítico";
-  const plan=[sb?SC_TIP[sb[0]]:"", sa?SC_AVOID[sa[0]]:"", worst?`Le cuesta con ${worst.v.toLowerCase()} (${worst.w}-${worst.l}).`:"", fis&&fis<3?"Alarga los puntos: físicamente suele llegar justo.":""].filter(Boolean);
-  const bars=SV.golpes.map(g=>g[1]).map(k=>{ const pl=(s.q3a||{})[k]||0, mi=(s.q3b||{})[k]||0;
-    return `<div class="sc-brow"><span class="sc-bl">${mi?`<i style="width:${(mi/n*100).toFixed(0)}%"></i>`:""}<em>${mi||""}</em></span><b>${esc(k)}</b><span class="sc-br">${pl?`<i style="width:${(pl/n*100).toFixed(0)}%"></i>`:""}<em>${pl||""}</em></span></div>`; }).join("");
-  const facBars=Object.entries(s.q9||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="vbar"><span>${esc(k)}</span><div class="vtrack"><span style="width:${(v/n*100).toFixed(0)}%;background:var(--sc-accent)"></span></div><b class="num">${pct(v)}</b></div>`).join("");
-  return head
-   +`<div class="sc-meta"><span>📋 ${n} encuestas</span><span>🏆 ${s.w||0}V · ${s.l||0}D</span>
-      <button class="sc-hand" data-x="scouthand" data-id="${id}">✋ ${hand==="zurdo"?"Zurdo":"Diestro"} <small>(cambiar)</small></button></div>`
-   +`<div class="sc-grid">
-      <div class="sc-card sc-courtbox">${scCourt(s,id,hand)}
-        <div class="sc-legend"><span><i style="background:var(--sc-good)"></i>Confía</span><span><i style="background:var(--sc-mid)"></i>Depende</span><span><i style="background:var(--sc-bad)"></i>Le cuesta</span><span class="mini">Tamaño = cuántas veces lo nombra</span></div>
-      </div>
-      <div class="sc-side-cards">
-        <div class="sc-card good"><div class="sc-k">Arma principal</div><div class="sc-v">${sa?esc(sa[0]):"–"}</div><div class="sc-s">${sa?`La elige como golpe de confianza en el ${pct(sa[1])} de sus partidos`:""}</div></div>
-        <div class="sc-card bad"><div class="sc-k">Punto débil</div><div class="sc-v">${sb?esc(sb[0]):"–"}</div><div class="sc-s">${sb?`Lo señala como su peor golpe en el ${pct(sb[1])} de sus partidos`:""}</div></div>
-        <div class="sc-card plan"><div class="sc-k">🧠 Plan de partido</div><ul>${plan.map(t=>`<li>${esc(t)}</li>`).join("")||"<li>Sin pistas claras todavía.</li>"}</ul></div>
-      </div>
+  const duels=(!self_&&me&&me.n)?SC_DUELS.map(([mine,his,txt])=>({txt,mine,his,e:scScore(me,mine)-scScore(s,his)})).filter(d=>Math.abs(d.e)>0.01).sort((a,b)=>Math.abs(b.e)-Math.abs(a.e)).slice(0,4):[];
+  const bars=SHOTS().map(k=>{ const pl=(s.q3a||{})[k]||0, mi=(s.q3b||{})[k]||0;
+    return `<div class="sx-brow"><span class="sx-bl">${mi?`<i style="--w:${(mi/n*100).toFixed(0)}%"></i><em>${mi}</em>`:""}</span><b>${esc(k)}</b><span class="sx-br">${pl?`<i style="--w:${(pl/n*100).toFixed(0)}%"></i><em>${pl}</em>`:""}</span></div>`; }).join("");
+  const sec=(i,title,body,cls="")=>`<section class="sx-sec ${cls}" style="--d:${(0.08*i).toFixed(2)}s"><h3 class="sx-h">${title}</h3>${body}</section>`;
+  return hero(`<div class="sx-chips"><span>📋 ${n} encuesta${n===1?"":"s"}</span><span>🏆 ${s.w||0}V · ${s.l||0}D</span>
+      <button class="sx-hand" data-x="scouthand" data-id="${id}">✋ ${hand==="zurdo"?"Zurdo":"Diestro"} <small>cambiar</small></button></div>${scThreat(s,fis,self)}`)
+   +`<div class="sx-body-wrap">`
+   +`<div class="sx-duo">
+      ${sec(1,"🗺️ Mapa de calor",`<div class="sx-tilt">${court.svg}</div><div class="sx-legend"><span><i class="lg-good"></i>Confía</span><span><i class="lg-mid"></i>Depende</span><span><i class="lg-bad"></i>Le cuesta</span><span class="mini">Más grande = lo nombra más</span></div>`,"dark")}
+      <div class="sx-col">
+        <div class="sx-card weapon"><div class="sx-k">⚔️ Arma principal</div><div class="sx-big">${sa?esc(sa[0]):"–"}</div><div class="sx-bar"><i style="--w:${sa?pct(sa[1]):0}%"></i></div><div class="sx-s">${sa?`Su golpe de confianza en el <b data-count="${pct(sa[1])}">${pct(sa[1])}</b>% de sus partidos`:""}</div></div>
+        <div class="sx-card weak"><div class="sx-k">🎯 Punto débil</div><div class="sx-big">${sb?esc(sb[0]):"–"}</div><div class="sx-bar"><i style="--w:${sb?pct(sb[1]):0}%"></i></div><div class="sx-s">${sb?`Lo señala como su peor golpe en el <b data-count="${pct(sb[1])}">${pct(sb[1])}</b>% de sus partidos`:""}</div></div>
+        <div class="sx-card plan"><div class="sx-k">🧠 Plan de partido</div><ul>${plan.map((t,i)=>`<li style="--d:${(0.5+0.15*i).toFixed(2)}s">${esc(t)}</li>`).join("")||"<li>Sin pistas claras todavía.</li>"}</ul></div>
+      </div></div>`
+   +(playKeys.length?sec(2,"📋 Pizarra táctica",`<div class="sx-plays">${playKeys.map((k,i)=>scPlay(k,hand,i)).join("")}</div><p class="sx-note">La bola amarilla marca el golpe; la línea discontinua, el movimiento.</p>`,"dark"):"")
+   +`<div class="sx-duo">`
+   +sec(3,"🧬 ADN de golpes",`${scRadar(s,!self_?me:null,p.color)}<div class="sx-legend light"><span><i style="background:${p.color}"></i>${esc(p.first)}</span>${!self_&&me&&me.n?`<span><i class="lg-me"></i>Tú</span>`:""}<span class="mini">Hacia fuera = más confianza</span></div>`)
+   +(duels.length?sec(4,"🥊 Duelos clave: tú vs él",`<div class="sx-duels">${duels.map(d=>{ const w=Math.min(50,Math.abs(d.e)*25), good=d.e>0.2, bad=d.e<-0.2;
+        return `<div class="sx-duel"><div class="sx-dt">${esc(d.txt)}</div><div class="sx-dbar"><i class="${d.e>=0?"r":"l"}" style="--w:${w.toFixed(0)}%"></i><span class="sx-center"></span></div><div class="sx-dv ${good?"good":bad?"bad":""}">${good?"Ventaja tuya":bad?"Ventaja suya":"Igualado"}</div></div>`; }).join("")}</div><p class="sx-note">Cruza tus encuestas con las suyas: tu confianza en un golpe frente a la suya en el que lo contrarresta.</p>`)
+      :sec(4,"🔑 Qué decide sus partidos",scDonut(fac,n)))
+   +`</div>`
+   +`<div class="sx-trio">
+      <div class="sx-card" style="--d:.3s"><div class="sx-k">Físico</div>${gauge(fis,fisL(fis),"💪")}</div>
+      <div class="sx-card" style="--d:.38s"><div class="sx-k">Cómo se ve</div>${gauge(self,selfL(self),"🪞")}</div>
+      <div class="sx-card" style="--d:.46s"><div class="sx-k">¿Acepta el resultado?</div><div class="sx-big sm"><span data-count="${Math.round(real*100)}">${Math.round(real*100)}</span>%</div><div class="sx-s">de las veces cree que el marcador refleja lo jugado${real<0.5?" · tiende a buscar excusas 😉":""}</div></div>
     </div>`
-   +`<div class="sc-grid3">
-      <div class="sc-card"><div class="sc-k">💪 Físico</div>${gauge(fis,fisL(fis))}</div>
-      <div class="sc-card"><div class="sc-k">🪞 Cómo se ve</div>${gauge(self,selfL(self))}</div>
-      <div class="sc-card"><div class="sc-k">⚖️ ¿Acepta el resultado?</div><div class="sc-v sm">${Math.round(real*100)}%</div><div class="sc-s">de las veces cree que el marcador refleja lo jugado${real<0.5?" · tiende a buscar excusas 😉":""}</div></div>
-    </div>`
-   +`<div class="sc-grid2">
-      <div class="sc-card"><div class="sc-k">Golpes · <span class="bad-t">le cuesta</span> vs <span class="good-t">confía</span></div><div class="sc-bars">${bars}</div></div>
-      <div class="sc-card"><div class="sc-k">🔑 Qué decide sus partidos</div>${facBars||"<div class='mini'>Sin datos</div>"}
-        <div class="sc-k" style="margin-top:14px">🌦️ Condiciones</div>
-        <div class="sc-cond">${best?`<div class="good"><b>Rinde mejor</b><span>${esc(best.v)}</span><em>${best.w}-${best.l}</em></div>`:""}${worst?`<div class="bad"><b>Sufre con</b><span>${esc(worst.v)}</span><em>${worst.w}-${worst.l}</em></div>`:""}${!best&&!worst?"<div class='mini'>Aún sin partidos con resultado</div>":""}</div>
-      </div>
-    </div>`
-   +`<p class="sc-foot">Basado en lo que ${esc(p.first)} responde en sus propias encuestas. Solo cifras agregadas: nunca se muestran respuestas sueltas ni comentarios. El mapa sitúa cada golpe en su zona habitual de la pista; no registra posiciones reales.</p>`;
+   +`<div class="sx-duo">`
+   +sec(5,"🎾 Golpes · <span class='bad-t'>le cuesta</span> vs <span class='good-t'>confía</span>",`<div class="sx-bars">${bars}</div>`)
+   +sec(6,"🌦️ Condiciones",`<div class="sx-cond">${best?`<div class="good"><b>Rinde mejor</b><span>${esc(best.v)}</span><em>${best.w}-${best.l}</em></div>`:""}${worst?`<div class="bad"><b>Sufre con</b><span>${esc(worst.v)}</span><em>${worst.w}-${worst.l}</em></div>`:""}${!best&&!worst?"<div class='mini'>Aún sin partidos con resultado</div>":""}</div>${duels.length?`<h3 class="sx-h" style="margin-top:16px">🔑 Qué decide sus partidos</h3>${scDonut(fac,n)}`:""}`)
+   +`</div>`
+   +`<p class="sx-foot">Basado en lo que ${esc(p.first)} responde en sus propias encuestas. Solo cifras agregadas: nunca se muestran comentarios. El mapa sitúa cada golpe en su zona habitual de la pista y el nivel de amenaza es orientativo (resultados, físico y confianza).</p></div>`;
+}
+function scCountUp(root){
+  if(!root||!scMotion()) return;
+  root.querySelectorAll("[data-count]").forEach(el=>{ const to=+el.dataset.count||0, t0=performance.now(), d=900;
+    const f=t=>{ const k=Math.min(1,(t-t0)/d), e=1-Math.pow(1-k,3); el.textContent=Math.round(to*e); if(k<1) requestAnimationFrame(f); }; el.textContent="0"; requestAnimationFrame(f); });
 }
 async function openScout(id){
   S.modal=()=>openScout(id);
-  const cached=SC_CACHE[id];
-  showModal(`<div class="sheet-body sc" id="sc-body">${cached?scoutHtml(id,cached.s):`<div class="empty">Preparando el informe…</div>`}</div>`);
-  if(!cached||Date.now()-cached.at>60000){
-    try{ const s=await scoutLoad(id); const b=document.getElementById("sc-body"); if(b) b.innerHTML=scoutHtml(id,s); }
+  const fresh=x=>x&&Date.now()-x.at<60000;
+  const render=()=>{ const b=document.getElementById("sc-body"); if(b){ b.innerHTML=scoutHtml(id,SC_CACHE[id].s,S.me&&SC_CACHE[S.me]?SC_CACHE[S.me].s:null); scCountUp(b); } };
+  showModal(`<div class="sheet-body sx" id="sc-body">${SC_CACHE[id]?"":`<div class="sx-loading"><div class="sx-radar-spin"></div>Analizando a ${esc(P[id].first)}…</div>`}</div>`);
+  if(SC_CACHE[id]) render();
+  if(!fresh(SC_CACHE[id])||(S.me&&!fresh(SC_CACHE[S.me]))){
+    try{ await Promise.all([scoutLoad(id), S.me&&S.me!==id?scoutLoad(S.me).catch(()=>null):null]); render(); }
     catch(e){ console.error(e); const b=document.getElementById("sc-body"); if(b) b.innerHTML=`<div class="empty">No se pudo cargar el informe${isPerm(e)?": falta publicar las reglas nuevas de Firebase":""}.</div>`; }
   }
 }
 document.addEventListener("click",ev=>{
   const a=ev.target.closest('[data-x="scout"]'); if(a){ openScout(a.dataset.id); return; }
-  const h=ev.target.closest('[data-x="scouthand"]'); if(h){ const id=h.dataset.id, k="am_hand_"+id; localStorage.setItem(k,(localStorage.getItem(k)||"diestro")==="zurdo"?"diestro":"zurdo"); const b=document.getElementById("sc-body"); if(b&&SC_CACHE[id]) b.innerHTML=scoutHtml(id,SC_CACHE[id].s); }
+  const h=ev.target.closest('[data-x="scouthand"]'); if(h){ const id=h.dataset.id, k="am_hand_"+id; localStorage.setItem(k,(localStorage.getItem(k)||"diestro")==="zurdo"?"diestro":"zurdo"); const b=document.getElementById("sc-body"); if(b&&SC_CACHE[id]){ b.innerHTML=scoutHtml(id,SC_CACHE[id].s,S.me&&SC_CACHE[S.me]?SC_CACHE[S.me].s:null); } }
 });
-/* Organizador: recalcular las cifras de todos a partir de TODAS las encuestas respondidas (incluye las antiguas) */
+/* Organizador: rehace las cifras de todos con TODAS las encuestas respondidas (incluye las anteriores a esta función) */
+async function scoutRebuildData(snap){
+  const by={}; snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="completed"&&x.answers)
+    .sort((a,b)=>(a.sentAt||0)-(b.sentAt||0)).forEach(x=>{ by[x.playerId]=statsAdd(by[x.playerId]||null,x.playerId,x.answers,getMatch(x.matchId),x.id); });
+  for(const p of PLAYERS){ await Store.db.collection("survey_stats").doc(p.id).set(by[p.id]||{n:0,w:0,l:0,pid:p.id,t:Date.now(),last:""}); delete SC_CACHE[p.id]; }
+}
 async function scoutRebuild(btn){
   if(!Store.isAdmin) return;
-  if(!confirm("¿Recalcular el análisis de rival con todas las encuestas respondidas, también las antiguas? Avisa antes al grupo.")) return;
+  if(!confirm("¿Recalcular el análisis de rival con todas las encuestas respondidas, también las antiguas?")) return;
   btn.disabled=true; btn.textContent="Recalculando…";
-  try{
-    const snap=await Store.db.collection("surveys").get();
-    const by={}; snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="completed"&&x.answers)
-      .sort((a,b)=>(a.sentAt||0)-(b.sentAt||0)).forEach(x=>{ by[x.playerId]=statsAdd(by[x.playerId]||null,x.playerId,x.answers,getMatch(x.matchId),x.id); });
-    for(const p of PLAYERS){ await Store.db.collection("survey_stats").doc(p.id).set(by[p.id]||{n:0,w:0,l:0,pid:p.id,t:Date.now(),last:""}); delete SC_CACHE[p.id]; }
-    toast("Análisis de rival recalculado"); btn.textContent="✓ Recalculado";
-  }catch(e){ console.error(e); btn.disabled=false; btn.textContent="🔄 Recalcular análisis de rival"; toast(isPerm(e)?"Sin permiso: publica las reglas nuevas":"No se pudo recalcular"); }
+  try{ await scoutRebuildData(await Store.db.collection("surveys").get()); toast("Análisis de rival recalculado"); btn.textContent="✓ Recalculado"; }
+  catch(e){ console.error(e); btn.disabled=false; btn.textContent="🔄 Recalcular análisis de rival"; toast(isPerm(e)?"Sin permiso: publica las reglas nuevas":"No se pudo recalcular"); }
 }
 document.addEventListener("click",ev=>{ const b=ev.target.closest('[data-x="scoutrebuild"]'); if(b) scoutRebuild(b); });
+/* Sincronización automática: cuando el organizador abre la app, si alguna cifra no cuadra con las encuestas respondidas, se rehace sola */
+async function scoutAutoSync(){
+  if(!Store.isAdmin||!Store.db||scoutAutoSync.done) return; scoutAutoSync.done=true;
+  try{
+    const [sv,st]=await Promise.all([Store.db.collection("surveys").get(), Store.db.collection("survey_stats").get()]);
+    const done={}, cur={};
+    sv.docs.forEach(d=>{ const x=d.data(); if(x.status==="completed"&&x.answers) done[x.playerId]=(done[x.playerId]||0)+1; });
+    st.docs.forEach(d=>{ cur[d.id]=d.data().n||0; });
+    if(PLAYERS.some(p=>(done[p.id]||0)!==(cur[p.id]||0))) await scoutRebuildData(sv);
+  }catch(e){ console.error("scoutAutoSync",e); scoutAutoSync.done=false; }
+}
+const _listen3=Store.listen;
+Store.listen=function(){ const was=this.listening; _listen3.call(this); if(!was) setTimeout(scoutAutoSync,2500); };
+
 
 window.Features={statsAdd,scoutHtml,openScout,Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
 schedule();
