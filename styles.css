@@ -1103,3 +1103,10 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 /* sin efectos en móviles lentos o si se piden menos animaciones */
 .lite .sx *,.lite .sx{animation:none!important}
 @media (prefers-reduced-motion:reduce){.sx *,.sx{animation:none!important}}
+
+.sv-multi{margin:-4px 0 10px;font-size:13px;color:var(--gold);font-weight:700}
+.sv-o:disabled{opacity:.3;cursor:not-allowed}
+.sv-o.chk{position:relative;padding-left:44px}
+.sv-o.chk::before{content:"";position:absolute;left:14px;top:50%;width:18px;height:18px;margin-top:-9px;border:2px solid rgba(255,255,255,.6);border-radius:5px}
+.sv-o.chk.on::before{background:var(--ball);border-color:var(--ball)}
+.sv-o.chk.on::after{content:"";position:absolute;left:20px;top:50%;width:5px;height:10px;margin-top:-7px;border:solid #061433;border-width:0 3px 3px 0;transform:rotate(45deg)}
