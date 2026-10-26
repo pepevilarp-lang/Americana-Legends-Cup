@@ -646,23 +646,30 @@ function runSurvey(list){
 function svCurrent(){ return SV_RUN.list[SV_RUN.idx]; }
 function svMatch(){ const d=svCurrent(); return getMatch(d.matchId); }
 function svSide(){ const d=svCurrent(); const m=svMatch(); const rival=d.playerId===m.a?m.b:m.a; return {m,rival}; }
+/* Preguntas en las que se pueden marcar varias opciones (las valoraciones de 1 a 5 siguen siendo de una) */
+const SV_MULTI=new Set(["q3a","q3b","q4","q5","q9"]);
+const svHas=(k,t)=>{ const v=SV_RUN.ans[k]; return Array.isArray(v)?v.includes(t):v===t; };
+const svLen=k=>{ const v=SV_RUN.ans[k]; return Array.isArray(v)?v.length:(v?1:0); };
 function svValid(step){
   const s=SV_STEPS[step]; const a=SV_RUN.ans;
-  if(s.golpes) return !!(a.q3a&&a.q3b);
+  if(s.golpes) return svLen("q3a")>0&&svLen("q3b")>0;
   if(s.comment) return true;
-  return !!a[s.key];
+  return svLen(s.key)>0;
 }
 function svRender(){
   const {ov}=SV_RUN, s=SV_STEPS[SV_RUN.step], n=SV_STEPS.length, pct=(SV_RUN.step+1)/n*100;
   const {m,rival}=svSide(), total=SV_RUN.list.length, left=SV_RUN.idx+1;
   let body="";
   if(s.golpes){
-    body=`<div class="sv-group"><h4>¿Con qué golpe jugaste con más confianza?</h4><div class="sv-opts">${SV.golpes.map(([k,t])=>`<button class="sv-o ${SV_RUN.ans.q3a===t?"on":""}" data-sv="q3a" data-v="${t}">${t}</button>`).join("")}</div></div>
-      <div class="sv-group"><h4>¿Con cuál jugaste con menos confianza?</h4><div class="sv-opts">${SV.golpes.map(([k,t])=>`<button class="sv-o ${SV_RUN.ans.q3b===t?"on":""}" data-sv="q3b" data-v="${t}">${t}</button>`).join("")}</div></div>`;
+    const g=(key,other)=>SV.golpes.map(([k,t])=>{ const blocked=svHas(other,t); return `<button class="sv-o ${svHas(key,t)?"on":""}" data-sv="${key}" data-v="${t}" ${blocked?"disabled":""} aria-pressed="${svHas(key,t)}">${t}</button>`; }).join("");
+    body=`<p class="sv-multi">Puedes marcar varios en cada pregunta.</p>
+      <div class="sv-group"><h4>¿Con qué golpes jugaste con más confianza?</h4><div class="sv-opts">${g("q3a","q3b")}</div></div>
+      <div class="sv-group"><h4>¿Con cuáles jugaste con menos confianza?</h4><div class="sv-opts">${g("q3b","q3a")}</div></div>`;
   } else if(s.comment){
     body=`<textarea id="sv-com" maxlength="300" placeholder="Opcional. Lo que quieras decir del partido (máx. 300 caracteres)">${esc(SV_RUN.ans.q10||"")}</textarea><div class="sv-count"><span id="sv-cc">${(SV_RUN.ans.q10||"").length}</span>/300</div>`;
   } else {
-    body=`<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${SV_RUN.ans[s.key]===t?"on":""}" data-sv="${s.key}" data-v="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
+    const multi=SV_MULTI.has(s.key);
+    body=`${multi?`<p class="sv-multi">Puedes marcar varias.</p>`:""}<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${multi?"chk ":""}${svHas(s.key,t)?"on":""}" data-sv="${s.key}" data-v="${esc(t)}" aria-pressed="${svHas(s.key,t)}">${esc(t)}</button>`).join("")}</div>`;
   }
   const last=SV_RUN.step===n-1, ok=svValid(SV_RUN.step);
   ov.innerHTML=`<div class="sv-box">
@@ -685,7 +692,10 @@ document.addEventListener("click",async e=>{
   const o=e.target.closest("[data-sv]"), nav=e.target.closest("[data-sv-nav]");
   if(o){
     const k=o.dataset.sv, v=o.dataset.v;
-    SV_RUN.ans[k]=v; svRender(); return;
+    if(o.disabled) return;
+    if(SV_MULTI.has(k)){ const cur=[].concat(SV_RUN.ans[k]||[]); const i=cur.indexOf(v); i>=0?cur.splice(i,1):cur.push(v); SV_RUN.ans[k]=cur; }
+    else SV_RUN.ans[k]=v;
+    svRender(); return;
   }
   if(!nav) return;
   if(nav.dataset.svNav==="back"){ SV_RUN.step--; svRender(); return; }
@@ -791,7 +801,7 @@ function vEncuestas(){
   if(!Store.isAdmin) return `<div class="empty">Solo para el organizador.</div>`;
   if(ENC_CACHE===null){ loadSurveyStats().catch(e=>{ ENC_CACHE=[]; console.error(e); }); return `<h2>Encuestas</h2><div class="empty">Cargando…</div>`; }
   const all=ENC_CACHE, done=all.filter(x=>x.status==="completed"), pend=all.filter(x=>x.status==="pending");
-  const bars=(title,opts,key)=>{ const c={}; done.forEach(x=>{ const v=x.answers&&x.answers[key]; if(v) c[v]=(c[v]||0)+1; }); const mx=Math.max(1,...Object.values(c));
+  const bars=(title,opts,key)=>{ const c={}; done.forEach(x=>{ [].concat((x.answers&&x.answers[key])||[]).forEach(v=>{ if(v) c[v]=(c[v]||0)+1; }); }); const mx=Math.max(1,...Object.values(c));
     return `<div class="panel xt-agg"><h3>${title}</h3>${opts.map(o=>{const n=c[o]||0; return `<div class="vbar"><span>${esc(o)}</span><div class="vtrack"><span style="width:${n/mx*100}%;background:var(--sky)"></span></div><b class="num">${n}</b></div>`;}).join("")}</div>`; };
   const avg=key=>{ const map={"Muy malo":1,"Malo":2,"Normal":3,"Bueno":4,"Muy bueno":5}; const v=done.map(x=>map[x.answers&&x.answers[key]]).filter(Boolean); return v.length?(v.reduce((s,n)=>s+n,0)/v.length).toFixed(1):"–"; };
   const byMatch=Object.values(all.reduce((acc,x)=>{ (acc[x.matchId]=acc[x.matchId]||{id:x.matchId,c:0,n:0}); acc[x.matchId].n++; if(x.status==="completed") acc[x.matchId].c++; return acc; },{}));
@@ -853,13 +863,13 @@ const SC_MIN=1;
 function statsAdd(cur,pid,ans,m,sid){
   const s=cur?JSON.parse(JSON.stringify(cur)):{n:0,w:0,l:0};
   s.n=(s.n||0)+1; s.w=s.w||0; s.l=s.l||0; s.last=sid||s.last||""; s.t=Date.now(); s.pid=pid;
-  const inc=(k,v)=>{ if(!v) return; s[k]=s[k]||{}; s[k][v]=(s[k][v]||0)+1; };
+  const inc=(k,v)=>{ [...new Set([].concat(v||[]))].forEach(x=>{ if(!x) return; s[k]=s[k]||{}; s[k][x]=(s[k][x]||0)+1; }); };
   inc("q1",ans.q1); inc("q3a",ans.q3_confianza); inc("q3b",ans.q3_menos_confianza);
   inc("q4",ans.q4); inc("q5",ans.q5); inc("q6",ans.q6); inc("q8",ans.q8); inc("q9",ans.q9);
   const r=m&&result(m);
   if(r&&m.a&&m.b){
     const won=r.w===(m.a===pid?"a":"b"); won?s.w++:s.l++;
-    const c=(k,v)=>{ if(!v) return; s[k]=s[k]||{}; s[k][v]=s[k][v]||{w:0,l:0}; s[k][v][won?"w":"l"]++; };
+    const c=(k,v)=>{ [...new Set([].concat(v||[]))].forEach(x=>{ if(!x) return; s[k]=s[k]||{}; s[k][x]=s[k][x]||{w:0,l:0}; s[k][x][won?"w":"l"]++; }); };
     c("c4",ans.q4); c("c5",ans.q5);
   }
   return s;
@@ -974,7 +984,7 @@ function scThreat(s,fis,self){
 }
 function scDonut(map,n){
   const cols=["#3E86E8","#F5B32B","#22C55E","#EF4444","#A855F7","#14B8A6"], e=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]); let acc=0; const C=2*Math.PI*36;
-  const segs=e.map(([k,v],i)=>{ const len=C*v/n, s=`<circle cx="50" cy="50" r="36" class="sx-seg" style="stroke:${cols[i%6]};stroke-dasharray:${len.toFixed(1)} ${C.toFixed(1)};stroke-dashoffset:${(-acc).toFixed(1)}"/>`; acc+=len; return s; }).join("");
+  const tot=e.reduce((t,x)=>t+x[1],0)||1; const segs=e.map(([k,v],i)=>{ const len=C*v/tot, s=`<circle cx="50" cy="50" r="36" class="sx-seg" style="stroke:${cols[i%6]};stroke-dasharray:${len.toFixed(1)} ${C.toFixed(1)};stroke-dashoffset:${(-acc).toFixed(1)}"/>`; acc+=len; return s; }).join("");
   return `<div class="sx-donut"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" class="bg"/>${segs}</svg>
     <ul>${e.map(([k,v],i)=>`<li><i style="background:${cols[i%6]}"></i>${esc(k)}<b>${Math.round(v/n*100)}%</b></li>`).join("")}</ul></div>`;
 }
