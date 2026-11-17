@@ -7,7 +7,7 @@
    Necesita en Vercel: FIREBASE_SERVICE_ACCOUNT (el JSON de la cuenta de servicio) y CRON_SECRET. */
 const crypto = require("crypto");
 const webpush = require("web-push");
-const { JORNADAS, NAMES, FIXTURE } = require("./_liga");
+const { JORNADAS, NAMES, FIXTURE, RECAP_FROM } = require("./_liga");
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "americana-legends-cup";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
@@ -29,6 +29,12 @@ function buildPlan(saved, today) {
   const plan = {};
   const add = (pid, p) => { if (!plan[pid]) plan[pid] = p; };
   const rival = (m, pid) => (m.a === pid ? m.b : m.a);
+  // 0) Día del resumen de la primera vuelta: aviso especial para todos (va antes que cualquier otro)
+  if (today === RECAP_FROM) {
+    Object.keys(NAMES).forEach(pid => add(pid, { title: "🎧 Tu primera vuelta ya suena",
+      body: `${nm(pid)}, gracias por hacer historia en la primera temporada de la Legends Cup. Tu resumen de la ida te espera, con canción incluida.`,
+      tag: "recap-ida", url: "./#recap" }));
+  }
   // 1) hoy y mañana
   for (const [day, word] of [[today, "Hoy"], [tomorrow, "Mañana"]]) {
     all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid =>
@@ -93,7 +99,7 @@ module.exports = async (req, res) => {
     await Promise.all(pDocs.map(async d => {
       const f = d.fields || {}, who = str(f, "who"), p = plan[who]; if (!p) return;
       let sub; try { sub = JSON.parse(str(f, "sub")); } catch (_) { return; }
-      try { await webpush.sendNotification(sub, JSON.stringify({ ...p, url: "./#hoy" }), { TTL: 6 * 3600, urgency: p.quiet ? "low" : "normal" }); sent++; }
+      try { await webpush.sendNotification(sub, JSON.stringify({ url: "./#hoy", ...p }), { TTL: 6 * 3600, urgency: p.quiet ? "low" : "normal" }); sent++; }
       catch (e) { failed++; }
     }));
     res.status(200).json({ today, people: Object.keys(plan).length, sent, failed });

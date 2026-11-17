@@ -1,0 +1,164 @@
+/* Recap de la primera vuelta · historias a pantalla completa estilo «Wrapped» */
+body.rc-on{overflow:hidden}
+#recap{position:fixed;inset:0;z-index:9999;background:#06173F;color:#fff;font-family:Barlow,"Segoe UI",Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;overflow:hidden;--lime:#E3FF3B;--d:7000ms}
+#recap .rc-stage{position:absolute;inset:0}
+#recap .rc-s{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;
+  transition:opacity .45s ease,visibility 0s .45s;overflow:hidden;padding:72px 26px 40px}
+#recap .rc-s.on{opacity:1;visibility:visible;transition:opacity .45s ease}
+#recap .rc-in{position:relative;z-index:2;width:100%;max-width:460px;text-align:left}
+
+/* Fondos: cada historia un color plano distinto, con dos manchas que se mueven */
+#recap .rc-k-intro{background:var(--c)}
+#recap .rc-k-nums,#recap .rc-k-none{background:#1DB954}
+#recap .rc-k-pos{background:#06173F}
+#recap .rc-k-streak{background:#FF4632}
+#recap .rc-k-rivals{background:#2D46B9}
+#recap .rc-k-match{background:#F573A0}
+#recap .rc-k-crowd{background:#509BF5}
+#recap .rc-k-tease{background:#000}
+#recap .rc-k-song{background:radial-gradient(120% 90% at 50% 20%,var(--c),#06173F 70%)}
+#recap .rc-k-card{background:#E3FF3B;color:#06173F}
+#recap .rc-k-thanks{background:#06173F}
+#recap .rc-blob{position:absolute;border-radius:50%;filter:blur(2px);opacity:.9;z-index:1}
+#recap .rc-blob.a{width:120vmax;height:120vmax;left:-70vmax;top:-80vmax;background:rgba(255,255,255,.12)}
+#recap .rc-blob.b{width:90vmax;height:90vmax;right:-55vmax;bottom:-60vmax;background:rgba(0,0,0,.18)}
+#recap .rc-s.on .rc-blob.a{animation:rcFloatA 9s ease-in-out infinite alternate}
+#recap .rc-s.on .rc-blob.b{animation:rcFloatB 11s ease-in-out infinite alternate}
+@keyframes rcFloatA{to{transform:translate(18vmax,12vmax) scale(1.08)}}
+@keyframes rcFloatB{to{transform:translate(-14vmax,-10vmax) scale(.92)}}
+#recap .rc-k-tease .rc-blob,#recap .rc-k-song .rc-blob{display:none}
+
+/* Entrada escalonada de cada elemento */
+#recap .rc-in>*{opacity:0;transform:translateY(26px)}
+#recap .rc-s.on .rc-in>*{animation:rcUp .7s cubic-bezier(.2,.8,.2,1) forwards}
+#recap .rc-s.on .rc-in>*:nth-child(2){animation-delay:.15s}
+#recap .rc-s.on .rc-in>*:nth-child(3){animation-delay:.35s}
+#recap .rc-s.on .rc-in>*:nth-child(4){animation-delay:.6s}
+#recap .rc-s.on .rc-in>*:nth-child(5){animation-delay:.85s}
+#recap .rc-s.on .rc-in>*:nth-child(6){animation-delay:1.1s}
+#recap .rc-s.on .rc-in>*:nth-child(7){animation-delay:1.35s}
+@keyframes rcUp{to{opacity:1;transform:none}}
+
+/* Tipografía */
+#recap .rc-kick{font:700 13px/1 Barlow,sans-serif;letter-spacing:.14em;text-transform:uppercase;opacity:.85;margin-bottom:14px}
+#recap .rc-big{font:italic 900 clamp(54px,15vw,96px)/.88 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase;margin:0 0 18px;letter-spacing:-.01em}
+#recap .rc-h{font:italic 900 clamp(38px,10vw,58px)/.92 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase;margin:0 0 22px}
+#recap .rc-lead{font:600 18px/1.4 Barlow,sans-serif;margin:18px 0 0;max-width:420px}
+#recap .rc-lead b{color:var(--lime)}
+#recap .rc-num{font:italic 900 clamp(120px,40vw,210px)/.85 "Big Shoulders Display",Impact,sans-serif;display:flex;align-items:flex-end;gap:12px}
+#recap .rc-num small{font:700 20px Barlow,sans-serif;text-transform:uppercase;letter-spacing:.06em;padding-bottom:18px}
+#recap .rc-num sup{font-size:.4em;align-self:flex-start;margin-top:.2em}
+#recap .rc-row{display:flex;gap:22px;flex-wrap:wrap;margin-top:22px}
+#recap .rc-row>div,#recap .rc-grid>div{display:flex;flex-direction:column}
+#recap .rc-row b,#recap .rc-grid b{font:italic 900 60px/.9 "Big Shoulders Display",Impact,sans-serif}
+#recap .rc-row small,#recap .rc-grid small{font:600 13px/1.2 Barlow,sans-serif;opacity:.85;text-transform:uppercase;letter-spacing:.05em;max-width:140px;margin-top:4px}
+#recap .rc-w{color:var(--lime)}
+#recap .rc-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+#recap .rc-grid b{font-size:84px}
+#recap .rc-form{display:inline-flex;gap:4px;flex-wrap:wrap;vertical-align:middle}
+#recap .rc-form i{font:800 13px/26px Barlow,"Segoe UI",Arial,sans-serif;width:26px;text-align:center;border-radius:50%;font-style:normal;background:rgba(0,0,0,.25)}
+#recap .rc-form i.w{background:var(--lime);color:#06173F}
+
+/* Caras */
+#recap .rc-face{display:inline-block;width:110px;height:110px;border-radius:50%;overflow:hidden;background:var(--c);box-shadow:0 0 0 4px #fff}
+#recap .rc-face img{width:100%;height:100%;object-fit:cover;object-position:top}
+#recap .rc-face.xl{width:min(56vw,250px);height:min(56vw,250px);box-shadow:0 0 0 6px #fff,0 20px 60px rgba(0,0,0,.35)}
+#recap .rc-hero{display:flex;justify-content:center;margin:6px 0}
+#recap .rc-s.on .rc-face.xl{animation:rcUp .7s .15s forwards,rcPulse 2.8s 1s ease-in-out infinite}
+@keyframes rcPulse{50%{transform:scale(1.04) rotate(-2deg)}}
+#recap .rc-duo{display:flex;gap:16px}
+#recap .rc-riv{flex:1;background:rgba(255,255,255,.12);border-radius:20px;padding:18px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+#recap .rc-riv.bad{background:rgba(0,0,0,.25)}
+#recap .rc-riv small{font:700 12px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;opacity:.85;margin-top:10px}
+#recap .rc-riv b{font:italic 900 34px/1 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase}
+#recap .rc-riv span{font:italic 900 46px/1 "Big Shoulders Display",Impact,sans-serif;color:var(--lime)}
+#recap .rc-vs{display:flex;align-items:center;gap:14px}
+#recap .rc-vs em{font:italic 900 46px "Big Shoulders Display",Impact,sans-serif;color:var(--lime)}
+#recap .rc-score{font:italic 900 clamp(56px,16vw,92px)/1 "Big Shoulders Display",Impact,sans-serif;margin-top:18px;letter-spacing:.02em}
+
+/* Canción */
+#recap .rc-k-tease .rc-big{font-size:clamp(46px,12vw,80px)}
+#recap .rc-k-song .rc-in{text-align:center}
+#recap .rc-disc{display:flex;justify-content:center;margin:4px 0 22px}
+#recap .rc-vinyl{position:relative;width:min(66vw,280px);aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle,#111 0 2px,#1c1c1c 2px 4px);box-shadow:0 24px 70px rgba(0,0,0,.55)}
+#recap .rc-art{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;opacity:.35;mix-blend-mode:screen}
+#recap .rc-art:not([src]){display:none}
+#recap .rc-lbl{position:absolute;left:50%;top:50%;width:38%;height:38%;margin:-19% 0 0 -19%;border-radius:50%;overflow:hidden;background:var(--c);box-shadow:0 0 0 5px #06173F}
+#recap .rc-lbl img{width:100%;height:100%;object-fit:cover;object-position:top}
+#recap .rc-s.on .rc-vinyl{animation:rcSpin 3.2s linear infinite}
+#recap.paused .rc-vinyl,#recap.paused .rc-blob{animation-play-state:paused}
+@keyframes rcSpin{to{transform:rotate(360deg)}}
+#recap h2.rc-song{font:italic 900 clamp(44px,13vw,76px)/.9 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase;margin:0;background:none}
+#recap .rc-artist{font:700 18px Barlow,"Segoe UI",Arial,sans-serif;opacity:.9;margin-top:8px}
+#recap .rc-eq{display:flex;gap:5px;justify-content:center;align-items:flex-end;height:28px;margin-top:16px}
+#recap .rc-eq i{width:6px;background:var(--lime);border-radius:3px;height:30%;animation:rcEq .9s ease-in-out infinite alternate}
+#recap .rc-eq i:nth-child(2){animation-delay:-.3s}#recap .rc-eq i:nth-child(3){animation-delay:-.6s}#recap .rc-eq i:nth-child(4){animation-delay:-.15s}#recap .rc-eq i:nth-child(5){animation-delay:-.45s}
+@keyframes rcEq{to{height:100%}}
+#recap .noaudio .rc-eq{opacity:.3}
+#recap .rc-k-song .rc-lead{margin-left:auto;margin-right:auto}
+#recap .rc-spot{display:inline-flex;margin-top:22px;padding:13px 22px;border-radius:999px;background:#1DB954;color:#000;font:800 16px Barlow,"Segoe UI",Arial,sans-serif;text-decoration:none}
+
+/* Tarjeta resumen */
+#recap .rc-k-card .rc-kick{color:#06173F}
+#recap .rc-k-card>.rc-in{max-width:420px}
+#recap div.rc-card{background:#06173F;color:#fff;border-radius:26px;padding:22px;box-shadow:0 30px 70px rgba(6,23,63,.35);position:relative;overflow:hidden}
+#recap div.rc-card::before{content:"";position:absolute;width:320px;height:320px;border-radius:50%;background:var(--c);opacity:.35;right:-150px;top:-190px}
+#recap .rc-card-top{display:flex;align-items:center;gap:14px;position:relative}
+#recap .rc-card-top .rc-face{width:72px;height:72px;box-shadow:0 0 0 3px #fff}
+#recap .rc-card-top b{font:italic 900 32px/1 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase;display:block}
+#recap .rc-card-top small{font:600 14px Barlow,"Segoe UI",Arial,sans-serif;opacity:.8}
+#recap .rc-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0;position:relative}
+#recap .rc-card-grid>div{background:rgba(255,255,255,.08);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column}
+#recap .rc-card-grid b{font:italic 900 46px/1 "Big Shoulders Display",Impact,sans-serif}
+#recap .rc-card-grid small{font:700 11px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;opacity:.75}
+#recap .rc-card-song{background:#E3FF3B;color:#06173F;border-radius:12px;padding:12px 14px;font:600 15px Barlow,"Segoe UI",Arial,sans-serif;position:relative}
+#recap .rc-card-foot{font:700 11px Barlow,"Segoe UI",Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;opacity:.6;margin-top:14px;position:relative}
+#recap .rc-actions{display:flex;gap:10px;margin-top:20px}
+#recap .rc-actions .btn{flex:1;text-align:center;text-decoration:none}
+#recap .rc-k-card .rc-actions .btn.ball{background:#06173F;border-color:#06173F;color:#fff}
+
+/* Gracias */
+#recap .rc-k-thanks .rc-big{font-size:clamp(46px,12vw,78px)}
+#recap .rc-others{margin-top:24px}
+#recap .rc-others small{font:700 12px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.1em;opacity:.8}
+#recap .rc-others>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+#recap .rc-others button{width:46px;height:46px;border-radius:50%;overflow:hidden;border:0;padding:0;background:var(--c);box-shadow:0 0 0 2px rgba(255,255,255,.7);cursor:pointer}
+#recap .rc-others img{width:100%;height:100%;object-fit:cover;object-position:top}
+#recap .rc-k-thanks .btn.ghost{margin-top:22px}
+
+/* Barras de progreso, cerrar y sonido */
+#recap .rc-bars{position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:4px;z-index:5}
+#recap .rc-bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+#recap .rc-bars b{display:block;height:100%;width:0;background:#fff}
+#recap .rc-bars i.done b{width:100%}
+#recap .rc-bars i.now b{animation:rcBar var(--d) linear forwards}
+#recap.rc-final .rc-bars i.now b{animation:none;width:100%}
+#recap.paused .rc-bars i.now b{animation-play-state:paused}
+@keyframes rcBar{to{width:100%}}
+#recap .rc-x,#recap .rc-mute{position:absolute;top:calc(22px + env(safe-area-inset-top));z-index:6;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.25);color:#fff;font:400 26px/40px Barlow,"Segoe UI",Arial,sans-serif;cursor:pointer}
+#recap .rc-x{right:12px}#recap .rc-mute{right:60px;font-size:18px}
+
+/* Pantalla de inicio (el toque que permite que suene la música) */
+#recap .rc-start{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;padding:30px;
+  background:radial-gradient(90% 70% at 30% 20%,var(--c),transparent 70%),radial-gradient(80% 60% at 90% 100%,#1DB954,transparent 70%),#06173F;transition:opacity .5s,visibility 0s .5s}
+#recap .rc-start.gone{opacity:0;visibility:hidden}
+#recap .rc-start .rc-in>*{opacity:1;transform:none;animation:none}
+#recap .rc-start .btn{margin-top:26px;font-size:18px;padding:16px 28px}
+
+/* Tarjeta en «Hoy» */
+.rc-banner{display:flex;align-items:center;gap:16px;width:100%;margin:22px 0 8px;position:relative;z-index:2;padding:16px 18px;border:0;border-radius:20px;cursor:pointer;text-align:left;color:#fff;
+  background:linear-gradient(110deg,#06173F 0%,var(--c) 140%);box-shadow:0 14px 40px rgba(6,23,63,.25);font-family:Barlow,sans-serif}
+.rc-banner small{display:block;font:700 11px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:#E3FF3B}
+.rc-banner b{display:block;font:italic 900 30px/1 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase}
+.rc-banner em{font-style:normal;font-weight:600;opacity:.85;font-size:14px}
+.rc-banner-go{margin-left:auto;width:46px;height:46px;border-radius:50%;background:#1DB954;color:#000;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
+.rc-banner-eq{display:flex;gap:4px;align-items:flex-end;height:30px;flex:0 0 auto}
+.rc-banner-eq i{width:6px;background:#1DB954;border-radius:3px;height:40%;animation:rcEq .8s ease-in-out infinite alternate}
+.rc-banner-eq i:nth-child(2){animation-delay:-.4s}.rc-banner-eq i:nth-child(3){animation-delay:-.2s}
+
+@media (prefers-reduced-motion:reduce){
+  #recap *,#recap *::before{animation-duration:.01ms!important;animation-iteration-count:1!important}
+  #recap .rc-in>*{opacity:1;transform:none}
+}

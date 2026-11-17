@@ -22,6 +22,9 @@ window.LIGA_CONFIG = {
   // el de verdad vive en Firestore (config/acceso) y nunca se sube a GitHub.
   LOCAL_PIN: "PRUEBA",
 
+  // Día en que se abre el resumen de la primera vuelta (la ida termina el 26/12). Ese día llega un aviso especial.
+  RECAP_FROM: "2026-12-27",
+
   // Cruces oficiales de la ida (J1–J9), en el mismo orden que la web original.
   // La vuelta (J10–J18) repite cada jornada con los cruces invertidos.
   // Jugadores con vídeo de entrada (img/<id>-walkout.webp). Ejemplo: ["alvaro","pepe"]
