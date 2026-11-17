@@ -6,5 +6,5 @@ const NAMES = {"alvaro": "Álvaro", "eduardo": "Eduardo", "joan": "Joan", "pepe"
 const FIXTURE = [];
 CRUCES_IDA.forEach((r, i) => r.forEach(([a, b]) => FIXTURE.push({ id: `J${i + 1}-${a}-${b}`, j: i + 1, a, b })));
 CRUCES_IDA.forEach((r, i) => r.forEach(([a, b]) => FIXTURE.push({ id: `J${i + 10}-${b}-${a}`, j: i + 10, a: b, b: a })));
-const RECAP_FROM = "2026-12-27";   // igual que RECAP_FROM en config.js
+const RECAP_FROM = "2026-12-26";   // igual que RECAP_FROM en config.js
 module.exports = { JORNADAS, NAMES, FIXTURE, RECAP_FROM };

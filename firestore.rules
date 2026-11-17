@@ -111,6 +111,19 @@ service cloud.firestore {
       allow create, update: if signedIn() && request.resource.data.who == myPlayer();
     }
 
+    // Contador de entradas a la app (para el resumen de la ida): solo sumar 1 al total y a tu jugador
+    match /stats/{doc} {
+      allow read: if isMember();
+      allow create: if isMember() && doc == 'opens'
+        && request.resource.data.keys().hasOnly(['total', myPlayer()])
+        && request.resource.data.total == 1 && request.resource.data[myPlayer()] == 1;
+      allow update: if isMember() && doc == 'opens'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['total', myPlayer()])
+        && request.resource.data.total == resource.data.total + 1
+        && request.resource.data.get(myPlayer(), 0) == resource.data.get(myPlayer(), 0) + 1;
+      allow delete: if false;
+    }
+
     // ENCUESTAS: privadas. Solo las lee su jugador y el organizador (en agregado).
     match /surveys/{sid} {
       allow read: if isAdmin() || (signedIn() && resource.data.playerId == myPlayer());
