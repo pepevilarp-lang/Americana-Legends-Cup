@@ -24,6 +24,8 @@ window.LIGA_CONFIG = {
 
   // Día en que se abre el resumen de la primera vuelta (el 26/12, último día de la ida). Ese día llega un aviso especial.
   RECAP_FROM: "2026-12-26",
+  // Entradas a la app según Vercel Analytics (se rellena automáticamente el 26/12). 0 = usar solo el contador propio.
+  APP_OPENS: 0,
 
   // Cruces oficiales de la ida (J1–J9), en el mismo orden que la web original.
   // La vuelta (J10–J18) repite cada jornada con los cruces invertidos.

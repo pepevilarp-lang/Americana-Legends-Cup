@@ -110,20 +110,105 @@ function idaStats(){
   });
 }
 
-/* ---------- Música de fondo: una canción distinta en cada historia ---------- */
-const BG = {
-  liga:     {t:"Waka Waka (Esto es África)", a:"Shakira",                id:674461056},
-  cifras:   {t:"Mi Gente",                   a:"J Balvin & Willy William", id:1444327839},
-  honores:  {t:"Hasta el Amanecer",          a:"Nicky Jam",              id:1189391898},
-  intro:    {t:"Vivir Mi Vida",              a:"Marc Anthony",           id:668743167},
-  nums:     {t:"Shaky Shaky",                a:"Daddy Yankee",           id:1445050456},
-  pos:      {t:"La Bicicleta",               a:"Carlos Vives & Shakira", id:1234665881},
-  streak:   {t:"Dura",                       a:"Daddy Yankee",           id:1444855250},
-  rivals:   {t:"Échame La Culpa",            a:"Luis Fonsi & Demi Lovato", id:1447401618},
-  match:    {t:"Bailando",                   a:"Enrique Iglesias",       id:1443368808},
-  crowd:    {t:"La Gozadera",                a:"Gente de Zona & Marc Anthony", id:1014994765},
+/* ---------- Música de fondo: cada historia elige canción según lo que enseña ---------- */
+const TR = {
+  september:{t:"September",            a:"Earth, Wind & Fire",       id:1456444818},
+  migente:  {t:"Mi Gente",             a:"J Balvin & Willy William", id:1444327839},
+  amanecer: {t:"Hasta el Amanecer",    a:"Nicky Jam",                id:1189391898},
+  porahi:   {t:"Bailando por Ahí",     a:"Juan Magán",               id:436873963},
+  vivir:    {t:"Vivir Mi Vida",        a:"Marc Anthony",             id:668743167},
+  limbo:    {t:"Limbo",                a:"Daddy Yankee",             id:715685003},
+  shaky:    {t:"Shaky Shaky",          a:"Daddy Yankee",             id:1445050456},
+  inmyhead: {t:"In My Head",           a:"Jason Derulo",             id:353554290},
+  bici:     {t:"La Bicicleta",         a:"Carlos Vives & Shakira",   id:1234665881},
+  perdon:   {t:"El Perdón",            a:"Nicky Jam & Enrique Iglesias", id:1189391901},
+  dura:     {t:"Dura",                 a:"Daddy Yankee",             id:1444855250},
+  culpa:    {t:"Échame La Culpa",      a:"Luis Fonsi & Demi Lovato", id:1447401618},
+  amigos:   {t:"¿Quién Dijo Amigos?",  a:"Carlitos Rossy",           id:1203479312},
+  abusadora:{t:"Abusadora",            a:"Wisin & Yandel",           id:1442227075},
+  pajaritos:{t:"Te Pintaron Pajaritos",a:"Yandar & Yostin",          id:1581599226},
+  bailando: {t:"Bailando",             a:"Enrique Iglesias",         id:1443368808},
+  gozadera: {t:"La Gozadera",          a:"Gente de Zona & Marc Anthony", id:1014994765},
+  corazon:  {t:"Corazón",              a:"Maluma & Nego do Borel",   id:1377817359},
+  livin:    {t:"Livin' la Vida Loca",  a:"Ricky Martin",             id:192821659},
+  mordidita:{t:"La Mordidita",         a:"Ricky Martin",             id:1014994767},
+  ventepaca:{t:"Vente Pa' Ca",         a:"Ricky Martin & Maluma",    id:1205161915},
+  subeme:   {t:"SUBEME LA RADIO",      a:"Enrique Iglesias",         id:1585690490},
+  bailamos: {t:"Bailamos",             a:"Enrique Iglesias",         id:1443479200},
+  chantaje: {t:"Chantaje",             a:"Shakira & Maluma",         id:1234665569},
+  tortura:  {t:"La Tortura",           a:"Shakira & Alejandro Sanz", id:1817217220},
+  hips:     {t:"Hips Don't Lie",       a:"Shakira",                  id:1817217411},
+  loca:     {t:"Loca",                 a:"Shakira & El Cata",        id:888878378},
+  partio:   {t:"Corazón Partío",       a:"Alejandro Sanz",           id:478735639},
+  rakata:   {t:"Rakata",               a:"Wisin & Yandel",           id:1467933609},
+  levanto:  {t:"Ella Me Levantó",      a:"Daddy Yankee",             id:1786000517},
+  daledon:  {t:"Dale Don Dale",        a:"Don Omar",                 id:1467968831},
+  salio:    {t:"Salió el Sol",         a:"Don Omar",                 id:1443507774},
+  ellayyo:  {t:"Ella y Yo",            a:"Aventura & Don Omar",      id:1073189255},
+  obsesion: {t:"Obsesión",             a:"Aventura",                 id:211280101},
+  propuesta:{t:"Propuesta Indecente",  a:"Romeo Santos",             id:804149490},
+  travesuras:{t:"Travesuras",          a:"Nicky Jam",                id:1790287644},
+  felices:  {t:"Felices los 4",        a:"Maluma",                   id:1377817652},
+  hawai:    {t:"Hawái",                a:"Maluma",                   id:1523698843},
+  sixam:    {t:"6 AM",                 a:"J Balvin & Farruko",       id:1440862759},
+  ayvamos:  {t:"Ay Vamos",             a:"J Balvin",                 id:1440817278},
+  ginza:    {t:"Ginza",                a:"J Balvin",                 id:1440835180},
+  calma:    {t:"Calma",                a:"Pedro Capó",               id:1412993945},
+  taxi:     {t:"El Taxi",              a:"Osmani García & Pitbull",  id:893250207},
+  camisa:   {t:"La Camisa Negra",      a:"Juanes",                   id:6825044387},
+  adios:    {t:"A Dios Le Pido",       a:"Juanes",                   id:1442717297},
+  mayores:  {t:"Mayores",              a:"Becky G & Bad Bunny",      id:1483618937},
+  sincontrato:{t:"Sin Contrato",       a:"Maluma",                   id:1048181449},
+  lomalo:   {t:"Lo Malo",              a:"Aitana & Ana Guerra",      id:1445060457},
+  megustas: {t:"Me Gustas Tú",         a:"Manu Chao",                id:726124491},
+  bonito:   {t:"Bonito",               a:"Jarabe de Palo",           id:306349246},
+  granoche: {t:"Mi Gran Noche",        a:"Raphael",                  id:734819808},
 };
-BG.none=BG.nums; BG.thanks=BG.intro;
+/* Ánimos: cada historia tira de uno; a cada jugador le tocan canciones distintas y sin repetir artista */
+const MOOD = {
+  fiesta:   ["migente","gozadera","bailando","vivir","limbo","shaky","livin","mordidita","ventepaca","subeme","bailamos","hips","loca","levanto","daledon","salio","travesuras","felices","hawai","sixam","ayvamos","ginza","calma","taxi","camisa","mayores","lomalo","bici","rakata"],
+  derrota:  ["perdon","inmyhead","partio","tortura","obsesion","ellayyo","propuesta","adios","amanecer","sincontrato","pajaritos"],
+  rival:    ["culpa","chantaje","tortura","rakata","ellayyo","propuesta"],
+  racha:    ["dura","rakata","levanto","limbo","daledon","salio","shaky","taxi","sixam"],
+  nostalgia:["corazon","granoche","bonito","megustas","adios","vivir","livin","bailamos","bici","camisa"],
+};
+const artistKey=a=>a.toLowerCase().split(/\s*(?:&|,|feat\.)\s*/)[0].trim();
+const hashStr=str=>{ let h=2166136261; for(const c of str){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
+/* Paliza: derrota por 7 juegos o más, o con un 6-0 en contra */
+function isPaliza(m,me){ const r=result(m); if(!r||r.wo) return false; const side=m.a===me?"a":"b"; if(r.w===side) return false;
+  const diff=side==="a"?r.gb-r.ga:r.ga-r.gb; return diff>=7||r.sets.some(z=>!z.st&&(side==="a"?z.a===0&&z.b===6:z.b===0&&z.a===6)); }
+function bgFor(k,x,L){
+  const R=x.R, id=x.id;
+  switch(k){
+    case "liga": return ["september"];                                   // empezó en septiembre
+    case "cifras": return "fiesta";
+    case "honores": return L.late>=5?["porahi","amanecer"]:"fiesta";      // medio liga bailando por ahí
+    case "intro": return id==="alvaro"?["limbo","shaky"]:"nostalgia";     // el DJ entra con su música
+    case "nums": case "none": return R.pg>=R.pp?"fiesta":"derrota";
+    case "pos": return R.pos<=4?"fiesta":R.pos>=8?"derrota":"nostalgia";
+    case "streak": return "racha";
+    case "rivals": { if(!x.nemesis) return "rival"; const h=R.h2h[x.nemesis];
+      const beat=R.res.some(m=>(m.a===x.nemesis||m.b===x.nemesis)&&isPaliza(m,id));
+      return (h.l>=2||beat)?["abusadora","amigos"]:["amigos","abusadora"]; }
+    case "match": return !x.match||x.match.won?"fiesta":isPaliza(x.match.m,id)?["pajaritos","perdon"]:"derrota";
+    case "crowd": return "fiesta";
+    case "thanks": return "nostalgia";
+  }
+  return "fiesta";
+}
+/* Elige la canción de una historia: fija si la broma lo pide; si no, del ánimo, distinta por jugador */
+function pickTrack(k,x,L,used,usedArt){
+  const want=bgFor(k,x,L), ok=key=>TR[key]&&!used.has(key)&&!usedArt.has(artistKey(TR[key].a));
+  let key=null;
+  if(Array.isArray(want)) key=want.find(ok)||want.find(z=>TR[z]&&!used.has(z));
+  if(!key){ const pool=MOOD[Array.isArray(want)?"fiesta":want]||MOOD.fiesta, h=hashStr(x.id+":"+k);
+    for(let i=0;i<pool.length&&!key;i++){ const z=pool[(h+i*7)%pool.length]; if(ok(z)) key=z; }
+    if(!key) key=MOOD.fiesta.find(z=>!used.has(z)); }
+  if(key){ used.add(key); usedArt.add(artistKey(TR[key].a)); }
+  return key;
+}
+/* Alternativas por si una canción no carga: del mismo ánimo, ya precargadas */
+function altsFor(key){ const m=Object.entries(MOOD).find(([,v])=>v.includes(key)); return (m?m[1]:MOOD.fiesta).filter(z=>z!==key).slice(0,4).map(z=>TR[z].id); }
 
 /* ---------- La liga entera en la ida ---------- */
 const JUNIORS = CFG.JUNIORS || ["julian","tomas"];   // «comité junior»
@@ -151,7 +236,7 @@ function leagueStats(){
     L.moved=Object.values(per).reduce((s,n)=>s+Math.max(0,n-1),0);
     const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0]||null;
     L.lateKing=top(L.lateBy); L.day=top(L.days); L.hour=top(L.hours);
-    const O=Store.recapOpens||{}; L.opens=O.total||0;
+    const O=Store.recapOpens||{}; L.opens=Math.max(O.total||0, +CFG.APP_OPENS||0);   // contador propio o Vercel Analytics (lo rellena una tarea el 26/12)
     const ob=Object.entries(O).filter(([k])=>P[k]); L.opener=ob.sort((a,b)=>b[1]-a[1])[0]||null; L.openBy=Object.fromEntries(ob);
     L.hoursOnCourt=Math.round(L.games*5/60);   // a ojo: unos 5 minutos por juego
     return L;
@@ -205,27 +290,49 @@ let PREV=null;
 async function previews(){
   if(PREV) return PREV;
   try{
-    const ids=[...new Set([...Object.values(SONGS),...Object.values(BG)].map(s=>s.id))].join(",");
+    const ids=[...new Set([...Object.values(SONGS),...Object.values(TR)].map(s=>s.id))].join(",");
     const r=await fetch(`https://itunes.apple.com/lookup?id=${ids}&country=es`).then(r=>r.json());
     PREV={}; (r.results||[]).forEach(t=>{ if(t.previewUrl) PREV[t.trackId]={url:t.previewUrl,art:(t.artworkUrl100||"").replace("100x100bb","600x600bb")}; });
-    Object.values(PREV).forEach(p=>{ const a=new Audio(); a.preload="auto"; a.src=p.url; });   // precarga
   }catch(e){ PREV={}; }
   return PREV;
 }
-const audio=new Audio(); audio.preload="auto"; audio.loop=true;
-let unlocked=false, curTrack=null, fadeT=null;
-function unlockAudio(){ if(unlocked) return; unlocked=true; try{ audio.muted=true; const p=audio.play(); if(p) p.then(()=>{ audio.pause(); audio.muted=false; }).catch(()=>{ audio.muted=false; }); }catch(e){} }
-function ramp(to,ms,done){ clearInterval(fadeT); const from=audio.volume, t0=Date.now(); fadeT=setInterval(()=>{ const k=Math.min(1,(Date.now()-t0)/ms); try{ audio.volume=from+(to-from)*k; }catch(e){} if(k>=1){ clearInterval(fadeT); done&&done(); } },40); }
+/* Un reproductor por canción: se precargan al abrir, se desbloquean todos en el toque de «Empezar»
+   (iOS solo deja sonar audio que se haya tocado en un gesto) y el cambio entre historias es inmediato. */
+const PLAYERS_A={}; let curTrack=null, muted=false;
+function player(id){ if(!id||!PREV||!PREV[id]) return null; let a=PLAYERS_A[id];
+  if(!a){ a=new Audio(); a.preload="auto"; a.loop=true; a.src=PREV[id].url; a.volume=1; PLAYERS_A[id]=a; try{ a.load(); }catch(e){} } return a; }
+function trackOk(id){ return !!(PREV&&PREV[id]); }
+function preloadTracks(ids){ ids.forEach(id=>player(id)); }
+function unlockAudio(ids){
+  ids.forEach(id=>{ const a=player(id); if(!a||a._u) return; a._u=true; a.muted=true; const p=a.play(); if(p) p.then(()=>{ if(curTrack!==id){ a.pause(); } a.muted=muted; }).catch(()=>{ a.muted=muted; }); }); }
+function fade(a,to,ms,done){ clearInterval(a._f); const from=a.volume, t0=Date.now(); a._f=setInterval(()=>{ const k=Math.min(1,(Date.now()-t0)/ms); try{ a.volume=Math.max(0,Math.min(1,from+(to-from)*k)); }catch(e){} if(k>=1){ clearInterval(a._f); done&&done(); } },40); }
 function playTrack(id,onFail){
-  if(id===curTrack) { if(id&&audio.paused) audio.play().catch(()=>{}); return; }
-  curTrack=id;
-  const start=()=>{ if(curTrack!==id) return; if(!id){ audio.pause(); return; }
-    const p=PREV&&PREV[id]; if(!p){ audio.pause(); onFail&&onFail(); return; }
-    audio.src=p.url; audio.currentTime=0; audio.volume=0;
-    const pr=audio.play(); if(pr) pr.then(()=>ramp(1,700)).catch(()=>onFail&&onFail()); else ramp(1,700); };
-  if(!audio.paused&&audio.src) ramp(0,260,start); else start();
+  if(id===curTrack){ const a=player(id); if(a&&a.paused) a.play().catch(()=>{}); return; }
+  const prev=curTrack&&PLAYERS_A[curTrack]; curTrack=id;
+  if(prev) fade(prev,0,350,()=>{ prev.pause(); prev.volume=1; });
+  if(!id) return;
+  const a=player(id); if(!a||a.error){ curTrack=null; onFail&&onFail(); return; }
+  try{ a.currentTime=0; }catch(e){}
+  a.muted=muted; a.volume=prev?0:1;
+  const pr=a.play();                       // se llama dentro del toque: iOS lo permite
+  const ok=()=>{ if(prev) fade(a,1,500); };
+  if(pr) pr.then(ok).catch(e=>{ if(curTrack===id) curTrack=null; if(!(e&&e.name==="AbortError")) onFail&&onFail(); }); else ok();
 }
-function stopAudio(){ curTrack=null; clearInterval(fadeT); try{ audio.pause(); }catch(e){} }
+/* Que suene siempre: si falla o se atasca, salta a una alternativa del mismo ánimo */
+function playSlide(s,sec){
+  const i=RC.i, tries=[s.track,...(s.alts||[])].filter(Boolean); let n=0;
+  const attempt=()=>{ if(!RC||RC.i!==i) return; const id=tries[n++]; if(!id){ sec.classList.add("noaudio"); return; }
+    if(n>1){ const tr=Object.values(TR).find(z=>z.id===id); const np=sec.querySelector(".rc-np"); if(tr&&np) np.innerHTML=nowPlaying(tr).replace(/^<div[^>]*>|<\/div>$/g,""); }
+    playTrack(id,()=>attempt());
+    clearTimeout(RC.wd); RC.wd=setTimeout(()=>{ if(!RC||RC.i!==i||curTrack!==id) return; const a=PLAYERS_A[id];
+      if(a&&!a.paused&&a.currentTime>.05) return;   // ya suena
+      if(a&&a.paused&&a._userPaused) return;
+      attempt(); },2600); };
+  if(!s.track){ playTrack(null); return; }
+  attempt();
+}
+function stopAudio(){ curTrack=null; Object.values(PLAYERS_A).forEach(a=>{ clearInterval(a._f); try{ a.pause(); }catch(e){} }); }
+function setMuted(v){ muted=v; Object.values(PLAYERS_A).forEach(a=>a.muted=v); }
 
 /* ---------- Historias ---------- */
 const fmtN=n=>Number(n).toLocaleString("es-ES");
@@ -237,14 +344,17 @@ function slides(id){
   const X=idaStats(), x=X[id], R=x.R, p=P[id], S2=SONGS[x.song], L=leagueStats();
   const pct=Math.round(100*PLAYERS.filter(q=>X[q.id].R.jf<R.jf).length/(PLAYERS.length-1));
   const nm=i=>esc(P[i].first);
-  const out=[]; const add=(k,d,h,track)=>out.push({k,d,h,track:track===undefined?(BG[k]&&BG[k].id):track});
-  /* 1-3 · La liga (igual para todos) */
+  const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);   // el artista de tu canción no suena antes
+  const add=(k,d,h,track)=>{ let tr=null, key=null;
+    if(track===undefined){ key=pickTrack(k,x,L,used,usedArt); tr=key&&TR[key]; }
+    out.push({k,d,h:h+(tr?nowPlaying(tr):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
+  /* 1-3 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
-    <p class="rc-lead">Primera vuelta cerrada: <b>${fmtN(L.played)}</b> partidos, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks${L.opens?`. Habéis entrado en la app <b>${fmtN(L.opens)}</b> veces`:""}. Esto ya no es una pachanga: es una liga.</p>${nowPlaying(BG.liga)}`);
+    <p class="rc-lead">Todo arrancó el 28 de septiembre. Primera vuelta cerrada: <b>${fmtN(L.played)}</b> partidos, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks${L.opens?`. Habéis entrado en la app <b>${fmtN(L.opens)}</b> veces`:""}. Esto ya no es una pachanga: es una liga.</p>`);
   const big=[[L.played,"partidos jugados"],[L.games,"juegos disputados"],[L.hoursOnCourt,"horas en pista (a ojo)"],[L.opens,"entradas a la app"],[L.preds,"pronósticos"],[L.votes,"votos MVP"]].filter(([v])=>v>0).slice(0,6);
   add("cifras",9000,`<h2 class="rc-h">La ida en cifras</h2><div class="rc-grid rc-grid3">${big.map(([v,l])=>`<div><b data-count="${v}">0</b><small>${l}</small></div>`).join("")}</div>
-    ${L.day?`<p class="rc-lead">Día favorito de la liga: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}.</p>`:""}${nowPlaying(BG.cifras)}`);
+    ${L.day?`<p class="rc-lead">Día favorito de la liga: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}.</p>`:""}`);
   const hon=[];
   hon.push(`<div><b data-count="${L.late}">0</b><small>partidos aplazados${L.latePending?` · ${L.latePending} aún por jugar`:""}</small></div>`);
   if(L.moved) hon.push(`<div><b data-count="${L.moved}">0</b><small>cambios de fecha</small></div>`);
@@ -255,38 +365,38 @@ function slides(id){
   if(L.longest) aw.push(`<li><span class="rc-face sm rc-face-x">⏱</span><span><small>El partido más largo</small><b>${nm(L.longest.m.a)} – ${nm(L.longest.m.b)}</b> · ${L.longest.g} juegos</span></li>`);
   add("honores",10000,`<h2 class="rc-h">Méritos, honores y deshonores</h2><div class="rc-row">${hon.join("")}</div>
     <ul class="rc-awards">${aw.join("")}</ul>
-    <p class="rc-lead">${L.late>=10?"Con todo el honor del mundo: aquí aplazar es casi una disciplina olímpica.":L.late?"Aplazar también es parte del juego. Con honor.":"Ni un aplazamiento. ¿Seguro que esto es una liga de amigos?"}</p>${nowPlaying(BG.honores)}`);
+    <p class="rc-lead">${L.late>=10?"Con todo el honor del mundo: aquí aplazar es casi una disciplina olímpica.":L.late?"Aplazar también es parte del juego. Con honor.":"Ni un aplazamiento. ¿Seguro que esto es una liga de amigos?"}</p>`);
   /* 4+ · Tu ida */
   add("intro",7500,`<div class="rc-kick">Y ahora, tú</div><h1 class="rc-big">${esc(p.first)}</h1>
     <div class="rc-hero">${face(id,"xl")}</div>
-    <p class="rc-lead">${esc(LORE[id]||p.bio||"")}</p>${nowPlaying(BG.intro)}`);
+    <p class="rc-lead">${esc(LORE[id]||p.bio||"")}</p>`);
   if(!R.pj){
-    add("none",7000,`<h2 class="rc-h">La ida, desde la grada</h2><div class="rc-num"><span data-count="0">0</span><small>partidos</small></div><p class="rc-lead">Te guardamos el sitio en la segunda vuelta.</p>${quip("nums",x,L)}${nowPlaying(BG.none)}`);
+    add("none",7000,`<h2 class="rc-h">La ida, desde la grada</h2><div class="rc-num"><span data-count="0">0</span><small>partidos</small></div><p class="rc-lead">Te guardamos el sitio en la segunda vuelta.</p>${quip("nums",x,L)}`);
   } else {
     add("nums",8000,`<h2 class="rc-h">Tus números</h2>
       <div class="rc-num"><span data-count="${R.pj}">0</span><small>partidos</small></div>
       <div class="rc-row"><div><b class="rc-w" data-count="${R.pg}">0</b><small>victorias</small></div><div><b data-count="${R.pp}">0</b><small>derrotas</small></div><div><b data-count="${R.jf}">0</b><small>juegos ganados</small></div></div>
-      <p class="rc-lead">Has ganado más juegos que el <b>${pct}%</b> de la liga.</p>${quip("nums",x,L)}${nowPlaying(BG.nums)}`);
+      <p class="rc-lead">Has ganado más juegos que el <b>${pct}%</b> de la liga.</p>${quip("nums",x,L)}`);
     add("pos",7500,`<h2 class="rc-h">Cierras la ida</h2>
       <div class="rc-num rc-posn"><span data-count="${R.pos}">0</span><sup>º</sup></div>
       <div class="rc-row"><div><b data-count="${R.pts}">0</b><small>puntos</small></div><div><b data-count="${x.elo}">0</b><small>índice Elo · ${x.eloPos}º</small></div></div>
-      <p class="rc-lead">${R.pos<=4?"Hoy estarías en playoffs. Que no se escape.":R.pos<=7?"A tiro de los playoffs. La vuelta decide.":"La tabla da muchas vueltas. Y queda la segunda."}</p>${nowPlaying(BG.pos)}`);
+      <p class="rc-lead">${R.pos<=4?"Hoy estarías en playoffs. Que no se escape.":R.pos<=7?"A tiro de los playoffs. La vuelta decide.":"La tabla da muchas vueltas. Y queda la segunda."}</p>`);
     const stk=[]; if(R.best) stk.push(`<div><b data-count="${R.best}">0</b><small>mejor racha de victorias</small></div>`);
     if(R.rem) stk.push(`<div><b data-count="${R.rem}">0</b><small>${R.rem===1?"remontada":"remontadas"}</small></div>`);
     if(x.stb) stk.push(`<div><b data-count="${R.stW}">0</b><small>super tie-breaks ganados de ${x.stb}</small></div>`);
     if(R.bag) stk.push(`<div><b data-count="${R.bag}">0</b><small>${R.bag===1?"rosco":"roscos"} (6-0)</small></div>`);
     if(stk.length) add("streak",8000,`<h2 class="rc-h">Tu carácter en pista</h2><div class="rc-grid">${stk.join("")}</div>
-      <p class="rc-lead">Forma: <span class="rc-form">${R.form.map(f=>`<i class="${f==="W"?"w":"l"}">${f==="W"?"V":"D"}</i>`).join("")}</span></p>${quip("streak",x,L)}${nowPlaying(BG.streak)}`);
+      <p class="rc-lead">Forma: <span class="rc-form">${R.form.map(f=>`<i class="${f==="W"?"w":"l"}">${f==="W"?"V":"D"}</i>`).join("")}</span></p>${quip("streak",x,L)}`);
     if(x.fetiche||x.nemesis) add("rivals",8000,`<h2 class="rc-h">Tus rivales</h2><div class="rc-duo">
       ${x.fetiche?`<div class="rc-riv">${face(x.fetiche)}<small>Rival fetiche</small><b>${nm(x.fetiche)}</b><span>${R.h2h[x.fetiche].w}–${R.h2h[x.fetiche].l}</span></div>`:""}
       ${x.nemesis?`<div class="rc-riv bad">${face(x.nemesis)}<small>Tu némesis</small><b>${nm(x.nemesis)}</b><span>${R.h2h[x.nemesis].w}–${R.h2h[x.nemesis].l}</span></div>`:""}
-      </div>${quip("rivals",x,L)||`<p class="rc-lead">${x.nemesis&&x.fetiche?"A uno ya le tienes cogida la medida. Con el otro hay cuentas pendientes.":x.fetiche?"Nadie te ha cogido la medida. De momento.":"La vuelta es para ajustar cuentas."}</p>`}${nowPlaying(BG.rivals)}`);
+      </div>${x.nemesis&&bgFor("rivals",x,L)[0]==="abusadora"?`<p class="rc-lead">${nm(x.nemesis)} te ha repasado: ${R.h2h[x.nemesis].w}–${R.h2h[x.nemesis].l}. Suena lo que tiene que sonar.</p>`:""}${quip("rivals",x,L)||`<p class="rc-lead">${x.nemesis&&x.fetiche?"A uno ya le tienes cogida la medida. Con el otro hay cuentas pendientes.":x.fetiche?"Nadie te ha cogido la medida. De momento.":"La vuelta es para ajustar cuentas."}</p>`}`);
     if(x.match){ const ml=matchLine(x.match.m,id); add("match",8000,`<h2 class="rc-h">${x.match.won?"El partido de tu ida":"El que más dolió"}</h2>
       <div class="rc-vs">${face(id)}<em>vs</em>${face(ml.op)}</div>
-      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):"Ese se queda en la memoria. Para mal."}</p>${nowPlaying(BG.match)}`); }
+      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>`); }
   }
   add("crowd",7500,`<h2 class="rc-h">La grada</h2><div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>
-    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:`<p class="rc-lead">Ni un pronóstico. En la vuelta, mójate.</p>`}${quip("crowd",x,L)}${nowPlaying(BG.crowd)}`);
+    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:`<p class="rc-lead">Ni un pronóstico. En la vuelta, mójate.</p>`}${quip("crowd",x,L)}`);
   add("tease",3800,`<h2 class="rc-big rc-tease">Toda temporada<br>tiene banda sonora.</h2><p class="rc-lead">Sube el volumen 🔊</p>`,null);
   add("song",16000,`<div class="rc-kick">Tu ida en una canción</div>
     <div class="rc-disc"><div class="rc-vinyl"><img class="rc-art" alt=""><span class="rc-lbl" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></span></div></div>
@@ -298,7 +408,7 @@ function slides(id){
     <div class="rc-card" style="--c:${p.color}">
       <div class="rc-card-top">${face(id)}<div><b>${esc(p.name)}</b><small>${esc(p.nick)} · Primera vuelta</small></div></div>
       <div class="rc-card-grid"><div><b>${R.pos||"–"}º</b><small>puesto</small></div><div><b>${R.pg}–${R.pp}</b><small>balance</small></div><div><b>${R.pts}</b><small>puntos</small></div><div><b>${R.best}</b><small>mejor racha</small></div></div>
-      <div class="rc-card-song">🎧 <b>${esc(S2.t)}</b> · ${esc(S2.a)}</div>
+      <div class="rc-card-song">🎧 Tu canción es <b>${esc(S2.t)}</b> · ${esc(S2.a)}<span>${esc(S2.why(x))}</span></div>
       <div class="rc-card-foot">Americana Legends Cup · Vol. 1</div>
     </div>
     <div class="rc-actions" data-nostep><button class="btn ball" data-rc-share>Compartir mi ida</button><a class="btn ghost" href="${spotifyUrl(S2)}" target="_blank" rel="noopener">Spotify</a></div>`,S2.id);
@@ -317,6 +427,7 @@ async function loadOpens(){
   if(!Store.db) { try{ Store.recapOpens=JSON.parse(localStorage.getItem("am_opens")||"{}"); }catch(e){} return; }
   try{ const d=await Store.db.collection("stats").doc("opens").get(); Store.recapOpens=d.exists?d.data():{}; VERSION++; }catch(e){}
 }
+const trackIds=d=>[...new Set(d.list.flatMap(s=>[s.track,...(s.alts||[]).slice(0,1)]).filter(Boolean))];
 async function openRecap(id){
   id=id||S.me||(Store.myPlayer)||PLAYERS[0].id; if(!P[id]) return;
   if(!Store.recapOpens) await loadOpens();
@@ -325,12 +436,13 @@ async function openRecap(id){
   const el=document.createElement("div"); el.id="recap"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Resumen de la primera vuelta");
   el.style.setProperty("--c",P[id].color);
   el.innerHTML=`<div class="rc-bars">${data.list.map(()=>`<i><b></b></i>`).join("")}</div>
-    <button class="rc-x" data-rc-close aria-label="Cerrar">×</button><button class="rc-mute" data-rc-mute aria-label="Silenciar">${audio.muted?"🔇":"🔊"}</button>
+    <button class="rc-x" data-rc-close aria-label="Cerrar">×</button><button class="rc-mute" data-rc-mute aria-label="Silenciar">${muted?"🔇":"🔊"}</button>
     <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-in">${s.h}</div></section>`).join("")}</div>
     <div class="rc-start"><div class="rc-in"><div class="rc-kick">Americana Legends Cup · Vol. 1</div><h1 class="rc-big">La primera vuelta ya suena</h1><p class="rc-lead">${esc(P[id].first)}: cada historia tiene su canción. Sube el volumen.</p><button class="btn ball" data-rc-go>Empezar 🎧</button></div></div>`;
   document.body.appendChild(el); document.body.classList.add("rc-on");
   RC={el,id,data,i:-1,t0:0,left:0,timer:null,paused:false};
-  previews().then(pv=>{ const s=pv[data.song.id]; if(!RC||RC.id!==id) return; const art=el.querySelector(".rc-art"); if(art&&s&&s.art) art.src=s.art; if(RC.i>=0) playTrack(RC.data.list[RC.i].track); });
+  previews().then(pv=>{ const s=pv[data.song.id]; if(!RC||RC.id!==id) return; const art=el.querySelector(".rc-art"); if(art&&s&&s.art) art.src=s.art;
+    preloadTracks(trackIds(data)); if(RC.i>=0) go(RC.i); });
   el.addEventListener("click",onClick); el.addEventListener("pointerdown",onDown); el.addEventListener("pointerup",onUp); el.addEventListener("pointercancel",onUp);
   document.addEventListener("keydown",onKey);
   try{ localStorage.setItem("am_recap_seen","1"); }catch(e){}
@@ -349,7 +461,7 @@ function go(i){
   const s=RC.data.list[i], sec=RC.el.querySelector(`.rc-s[data-i="${i}"]`);
   RC.el.querySelector(".rc-bars").style.setProperty("--d",(s.d||0)+"ms");
   countUp(sec);
-  playTrack(s.track,()=>sec.classList.add("noaudio"));
+  playSlide(s,sec);
   RC.left=s.d||0; RC.t0=Date.now(); if(RC.left&&!RC.paused) RC.timer=setTimeout(()=>go(RC.i+1),RC.left);
   RC.el.classList.toggle("rc-final",!s.d);
 }
@@ -363,11 +475,12 @@ function onDown(e){ if(!RC||RC.i<0||e.target.closest("[data-nostep],a,button")) 
 function onUp(){ if(!RC||!RC.paused) return; RC.paused=false; RC.el.classList.remove("paused"); RC.t0=Date.now(); if(RC.left) RC.timer=setTimeout(()=>go(RC.i+1),RC.left); }
 function onClick(e){
   if(!RC) return; const t=e.target;
+  if(PREV) unlockAudio(trackIds(RC.data));   // cada toque aprovecha para desbloquear el audio que falte (iOS)
   if(t.closest("[data-rc-close]")){ closeRecap(); return; }
-  if(t.closest("[data-rc-mute]")){ audio.muted=!audio.muted; t.closest("[data-rc-mute]").textContent=audio.muted?"🔇":"🔊"; return; }
-  if(t.closest("[data-rc-go]")){ unlockAudio(); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
+  if(t.closest("[data-rc-mute]")){ setMuted(!muted); t.closest("[data-rc-mute]").textContent=muted?"🔇":"🔊"; return; }
+  if(t.closest("[data-rc-go]")){ unlockAudio(trackIds(RC.data)); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
   if(t.closest("[data-rc-share]")){ shareCard(RC.id,t.closest("[data-rc-share]")); return; }
-  const w=t.closest("[data-rc-who]"); if(w){ const id=w.dataset.rcWho; openRecap(id); unlockAudio(); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
+  const w=t.closest("[data-rc-who]"); if(w){ stopAudio(); openRecap(w.dataset.rcWho); return; }
   if(t.closest("a,[data-nostep]")){ if(t.closest(".rc-spot,a")) stopAudio(); return; }
   if(RC.i<0) return;
   if(Date.now()-downAt>350&&downAt) { downAt=0; return; }   // mantener pulsado = pausa, no avanza
@@ -423,7 +536,7 @@ function maybeAuto(){
   if(want||(today()>=RECAP_FROM&&!seen)){ if(available()) openRecap(); }
   return true;
 }
-const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); countOpen(); } },800);
+const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); countOpen(); if(available()) previews(); } },800);
 /* Contador de entradas a la app (una por sesión): alimenta «habéis entrado X veces» */
 function countOpen(){
   try{ if(sessionStorage.getItem("am_opened")) return; sessionStorage.setItem("am_opened","1"); }catch(e){ return; }
@@ -447,5 +560,6 @@ VIEWS.hoy=function(){
 document.addEventListener("click",e=>{ if(e.target.closest("[data-rc-open]")) openRecap(); });
 
 window.openRecap=openRecap;
+window.recapNow=()=>{ const a=curTrack&&PLAYERS_A[curTrack]; return {track:curTrack, playing:!!(a&&!a.paused), t:a?+a.currentTime.toFixed(2):0}; };
 window.recapSongs=()=>{ const X=idaStats(); return PLAYERS.map(p=>[p.first,SONGS[X[p.id].song].t]); };
 })();
