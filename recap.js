@@ -416,7 +416,6 @@ function slides(id){
     <h2 class="rc-big">Gracias por hacer historia.</h2>
     <p class="rc-lead">Esta es la primera temporada de la Americana Legends Cup y existe porque ${PLAYERS.length} amigos decidieron tomársela en serio. Gracias por cada partido, cada voto, cada aplazamiento y cada pique en el grupo.</p>
     <p class="rc-lead">La vuelta arranca el <b>1 de febrero</b>. Id calentando.</p>
-    <div class="rc-others" data-nostep><small>Cotillea la ida de los demás</small><div>${PLAYERS.filter(q=>q.id!==id).map(q=>`<button data-rc-who="${q.id}" style="--c:${q.color}"><img src="${IMG(q.id)}" alt="${esc(q.first)}"></button>`).join("")}</div></div>
     <button class="btn ghost" data-rc-close data-nostep>Volver a la app</button>`);
   return {list:out, x, song:S2};
 }
@@ -429,7 +428,8 @@ async function loadOpens(){
 }
 const trackIds=d=>[...new Set(d.list.flatMap(s=>[s.track,...(s.alts||[]).slice(0,1)]).filter(Boolean))];
 async function openRecap(id){
-  id=id||S.me||(Store.myPlayer)||PLAYERS[0].id; if(!P[id]) return;
+  /* Cada uno solo ve el suyo (en modo prueba local se puede pedir otro para revisar) */
+  id=(Store.local&&id)||Store.myPlayer||S.me; if(!P[id]) return;
   if(!Store.recapOpens) await loadOpens();
   closeRecap(true);
   const data=slides(id);
@@ -480,7 +480,6 @@ function onClick(e){
   if(t.closest("[data-rc-mute]")){ setMuted(!muted); t.closest("[data-rc-mute]").textContent=muted?"🔇":"🔊"; return; }
   if(t.closest("[data-rc-go]")){ unlockAudio(trackIds(RC.data)); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
   if(t.closest("[data-rc-share]")){ shareCard(RC.id,t.closest("[data-rc-share]")); return; }
-  const w=t.closest("[data-rc-who]"); if(w){ stopAudio(); openRecap(w.dataset.rcWho); return; }
   if(t.closest("a,[data-nostep]")){ if(t.closest(".rc-spot,a")) stopAudio(); return; }
   if(RC.i<0) return;
   if(Date.now()-downAt>350&&downAt) { downAt=0; return; }   // mantener pulsado = pausa, no avanza
@@ -511,13 +510,18 @@ async function shareCard(id,btn){
     g.font=`600 40px ${B}`; g.fillStyle="rgba(255,255,255,.8)"; g.fillText(p.nick,84,1070);
     g.shadowBlur=0; g.shadowColor="transparent";
     const stats=[[`${R.pos||"–"}º`,"PUESTO"],[`${R.pg}–${R.pp}`,"BALANCE"],[`${R.pts}`,"PUNTOS"],[`${R.best}`,"MEJOR RACHA"]];
-    stats.forEach(([v,l],i)=>{ const cx=80+(i%2)*470, cy=1180+Math.floor(i/2)*230; g.fillStyle="rgba(255,255,255,.1)"; g.fillRect(cx,cy,440,200);
-      g.fillStyle="#fff"; g.font=`italic 900 110px ${D}`; g.fillText(v,cx+30,cy+120); g.font=`700 30px ${B}`; g.fillStyle="rgba(255,255,255,.75)"; g.fillText(l,cx+32,cy+170); });
-    g.fillStyle="#E3FF3B"; g.fillRect(80,1660,920,150); g.fillStyle="#06173F"; g.font=`700 30px ${B}`; g.fillText("🎧 MI IDA EN UNA CANCIÓN",115,1712);
-    let fs=64; g.font=`italic 900 ${fs}px ${D}`; const line=`${s.t.toUpperCase()} · ${s.a.toUpperCase()}`; while(g.measureText(line).width>850&&fs>30){ fs-=2; g.font=`italic 900 ${fs}px ${D}`; } g.fillText(line,115,1782);
+    stats.forEach(([v,l],i)=>{ const cx=80+(i%2)*470, cy=1120+Math.floor(i/2)*200; g.fillStyle="rgba(255,255,255,.1)"; g.fillRect(cx,cy,440,180);
+      g.fillStyle="#fff"; g.font=`italic 900 100px ${D}`; g.fillText(v,cx+30,cy+108); g.font=`700 28px ${B}`; g.fillStyle="rgba(255,255,255,.75)"; g.fillText(l,cx+32,cy+152); });
+    // Tu canción y la frase que te define
+    const why=s.why(x), wrap=(t,max)=>{ const out=[]; let cur=""; t.split(" ").forEach(w=>{ const n=cur?cur+" "+w:w; if(g.measureText(n).width>max&&cur){ out.push(cur); cur=w; } else cur=n; }); if(cur) out.push(cur); return out; };
+    g.font=`600 34px ${B}`; let lines=wrap(why,850); if(lines.length>3){ lines=lines.slice(0,3); lines[2]=lines[2].replace(/\s*\S*$/,"…"); }
+    const boxH=150+lines.length*44; const by=Math.min(1530,1880-boxH);
+    g.fillStyle="#E3FF3B"; g.fillRect(80,by,920,boxH); g.fillStyle="#06173F"; g.font=`700 30px ${B}`; g.fillText("🎧 MI IDA EN UNA CANCIÓN",115,by+50);
+    let fs=64; g.font=`italic 900 ${fs}px ${D}`; const line=`${s.t.toUpperCase()} · ${s.a.toUpperCase()}`; while(g.measureText(line).width>850&&fs>30){ fs-=2; g.font=`italic 900 ${fs}px ${D}`; } g.fillText(line,115,by+118);
+    g.font=`600 34px ${B}`; lines.forEach((l,i)=>g.fillText(l,115,by+172+i*44));
     const blobOut=await new Promise(r=>cv.toBlob(r,"image/jpeg",.92));
     const file=new File([blobOut],`mi-primera-vuelta-${id}.jpg`,{type:"image/jpeg"});
-    const text=`🎧 Mi primera vuelta en la Americana Legends Cup: ${R.pos}º, ${R.pg}–${R.pp}. Mi canción: ${s.t} (${s.a}).`;
+    const text=`🎧 Mi primera vuelta en la Americana Legends Cup: ${R.pos}º, ${R.pg}–${R.pp}. Mi canción: ${s.t} (${s.a}). ${why}`;
     if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],text}); return; }catch(e){ if(e&&e.name==="AbortError") return; } }
     downloadBlob(blobOut,file.name); toast("Imagen descargada: súbela a tu historia o al grupo");
   }catch(e){ console.error(e); toast("No se pudo crear la imagen"); }
