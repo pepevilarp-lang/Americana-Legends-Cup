@@ -89,6 +89,7 @@ function authErrMsg(e){
   if(/redirect_uri_mismatch|invalid-continue-uri|auth-domain-config-required/.test(c)) return "Falta autorizar la dirección de vuelta en Google Cloud (ver instrucciones del organizador).";
   return "No se pudo entrar con Google ("+c+").";
 }
+const normPin = v => String(v||"").toUpperCase().replace(/[\s\-_.]/g,"");
 const isPerm = e => /permission|PERMISSION_DENIED/i.test(String(e&&(e.code||e.message)));
 const Store = {
   matches:{}, preds:{}, votes:{}, db:null, member:false, listening:false, local:false, first:false, unsubs:[],
@@ -255,7 +256,7 @@ const Store = {
       if(col==="matches"){ setSync(true,"En directo para todos"); if(!this.first){ this.first=true; hideGate(); } }
       this.bump();
     }, err=>{ console.error(err);
-      if(isPerm(err)) this.lock("Tu acceso ha caducado. Vuelve a meter el PIN.");
+      if(isPerm(err)) this.lock("Tu acceso ha caducado (el código de la liga ha cambiado). Vuelve a meterlo.");
       else setSync(false,"Sin conexión con la base de datos"); });
     this.unsubs=[on("matches","matches"),on("preds","preds"),on("votes","votes")];
     setTimeout(()=>{ if(this.member&&document.getElementById("gate")&&document.querySelector("#gate .gate-load")) hideGate(); },7000);
@@ -266,19 +267,19 @@ const Store = {
     this.unsubs.forEach(u=>{ try{u();}catch(e){} }); this.unsubs=[]; this.listening=false; this.first=false;
     this.matches={}; this.preds={}; this.votes={}; this.bump(); closeModal(); setGate("pin",msg);
   },
-  /* Comprueba el PIN: el servidor lo valida con las reglas de Firestore, el PIN no está en el código */
-  async verifyPin(pin){
+  /* Comprueba el código: lo validan las reglas de Firestore contra config/acceso. El código no está en la app ni en GitHub.
+     Se normaliza (mayúsculas, sin espacios ni guiones) para que dé igual cómo lo teclee cada uno. */
+  async verifyPin(raw){
+    const pin=normPin(raw);
     if(this.local){
-      if(pin===(CFG.LOCAL_PIN||"")){ this.member=true; localStorage.setItem("am_ok","1"); return {ok:true}; }
-      return {ok:false,msg:"PIN incorrecto."};
+      if(pin===normPin(CFG.LOCAL_PIN||"")){ this.member=true; localStorage.setItem("am_ok","1"); return {ok:true}; }
+      return {ok:false,msg:"Código incorrecto."};
     }
     const u=firebase.auth().currentUser; if(!u) return {ok:false,msg:"No se pudo iniciar sesión en Firebase. Recarga la página."};
     try{ await this.db.collection("editors").doc(u.uid).set({pin}); }
     catch(e){
-      if(!isPerm(e)) return {ok:false,msg:`No se pudo comprobar el PIN (${e.code||e.message}). Revisa la conexión.`};
-      /* ¿Ya eras miembro de antes? (reglas antiguas sin 'update'): lo comprobamos escribiendo y borrando un documento de prueba */
-      try{ const d=this.db.collection("matches").doc("__probe"); await d.set({p:1}); await d.delete(); }
-      catch(e2){ return {ok:false,msg:"PIN incorrecto."}; }
+      if(!isPerm(e)) return {ok:false,msg:`No se pudo comprobar el código (${e.code||e.message}). Revisa la conexión.`};
+      return {ok:false,msg:"Código incorrecto."};
     }
     this.member=true; localStorage.setItem("am_ok","1"); this.listen(); return {ok:true};
   },
@@ -296,7 +297,7 @@ const Store = {
     catch(e){
       if(prev) this[target][id]=prev; else delete this[target][id];
       this.bump();
-      if(isPerm(e)) this.lock("Tu acceso ha caducado. Vuelve a meter el PIN."); else toast(errMsg);
+      if(isPerm(e)) this.lock("Tu acceso ha caducado (el código de la liga ha cambiado). Vuelve a meterlo."); else toast(errMsg);
       return false;
     }
   },
@@ -354,9 +355,9 @@ function gateState(st,msg){
   if(st==="loading") return `<div class="gate-bar"><i></i></div><p class="gate-load">${esc(msg||"Preparando el estadio…")}</p>`;
   if(st==="error") return `<div class="gate-panel"><div class="gate-err" role="alert">${esc(msg)}</div><button class="btn ball" id="gate-retry">Reintentar</button></div>`;
   return `<div class="gate-panel"><div class="gate-lock">${lockSvg()}</div><label for="gate-pin">Acceso de jugadores</label>
-    <input id="gate-pin" type="password" inputmode="numeric" autocomplete="off" enterkeyhint="go" maxlength="16" placeholder="PIN" aria-describedby="gate-err">
+    <input id="gate-pin" type="password" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="go" maxlength="40" placeholder="Código de la liga" aria-describedby="gate-err">
     <button class="btn ball" id="gate-ok">Entrar al estadio</button><div class="gate-err" id="gate-err" role="alert">${esc(msg||"")}</div>
-    <p class="gate-hint">Te lo pedirá una sola vez en este móvil. El PIN te lo da el organizador.</p>
+    <p class="gate-hint">Te lo pedirá una sola vez por cuenta. El código te lo da el organizador.</p>
     <button class="gate-link" id="gate-diag-btn">¿No te deja entrar? Ver diagnóstico</button><pre class="gate-diag" id="gate-diag"></pre></div>`;
 }
 /* Diagnóstico: distingue "PIN mal" de "reglas sin publicar" o "proyecto equivocado" */
@@ -371,7 +372,7 @@ async function runDiagnostic(){
   L.push(`Reglas nuevas publicadas: ${ping==="ok"?"SÍ":"NO"}`);
   L.push(`Reglas antiguas (lectura pública): ${pub==="ok"?"SÍ":"NO"}`);
   let msg;
-  if(ping==="ok") msg="Las reglas nuevas SÍ están publicadas. Entonces el PIN que escribes no coincide con el de las reglas: ábrelas en Firebase y mira la línea «pinCorrecto».";
+  if(ping==="ok") msg="Las reglas nuevas SÍ están publicadas. Entonces el código que escribes no coincide con el vigente (Firestore > config > acceso > pin). Pídeselo de nuevo al organizador.";
   else if(pub==="ok") msg="Hay publicadas las reglas ANTIGUAS. Pega y publica las nuevas (archivo firestore.rules).";
   else if(ping!=="denegado"||pub!=="denegado") msg=`No se pudo comprobar (${ping}/${pub}). Revisa la conexión.`;
   else msg="No hay reglas válidas publicadas en este proyecto. Pega y publica firestore.rules en Firestore > Reglas. Comprueba también que el proyecto de arriba es el tuyo.";
@@ -399,7 +400,7 @@ function setGate(st,msg){
   const pin=g.querySelector("#gate-pin"), ok=g.querySelector("#gate-ok"), err=g.querySelector("#gate-err");
   if(pin&&ok){
     const submit=async()=>{
-      const v=pin.value.trim(); if(!v){ err.textContent="Escribe el PIN."; return; }
+      const v=pin.value.trim(); if(!v){ err.textContent="Escribe el código."; return; }
       ok.disabled=true; ok.textContent="Comprobando…"; err.textContent="";
       const r=await Store.verifyPin(v);
       if(r.ok){ unlockGate(); if(Store.local) hideGate(); return; }

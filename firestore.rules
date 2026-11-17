@@ -3,10 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ==========================================================
-    //  PIN DE LA LIGA  ->  cámbialo aquí entre las comillas
+    //  CÓDIGO DE LA LIGA
+    //  No está en el código: vive en Firestore, documento config/acceso,
+    //  campo «pin» (texto). Nadie lo puede leer desde la app (ver match /config).
+    //  Para cambiarlo: edita ese campo en la consola de Firebase. Todos los
+    //  móviles tendrán que volver a meterlo una vez (el acceso antiguo caduca solo).
     // ==========================================================
-    function pinCorrecto(p) {
-      return p == '1234';
+    function pinActual() {
+      return get(/databases/$(database)/documents/config/acceso).data.pin;
     }
 
     // Sesión iniciada con Google
@@ -19,9 +23,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/players/$(request.auth.uid)).data.player;
     }
 
-    // Ha metido el PIN de la liga en este móvil
+    // Esta cuenta ha metido el código VIGENTE (si se cambia el código, deja de ser miembro)
     function isMember() {
-      return signedIn() && exists(/databases/$(database)/documents/editors/$(request.auth.uid));
+      return signedIn()
+        && exists(/databases/$(database)/documents/editors/$(request.auth.uid))
+        && get(/databases/$(database)/documents/editors/$(request.auth.uid)).data.get('pin', '') == pinActual();
     }
 
     // Organizador: su uid se añade a mano en la consola (desde la web no se puede)
@@ -58,10 +64,15 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // PIN correcto por móvil
+    // Código correcto por cuenta. Hace falta haber elegido cara antes.
     match /editors/{uid} {
       allow read, delete: if false;
-      allow create, update: if signedIn() && request.auth.uid == uid && pinCorrecto(request.resource.data.pin);
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pin'])
+        && request.resource.data.pin is string
+        && request.resource.data.pin.size() <= 40
+        && exists(/databases/$(database)/documents/players/$(request.auth.uid))
+        && request.resource.data.pin == pinActual();
     }
 
     // Partidos: se pueden ver y tocar con el PIN
