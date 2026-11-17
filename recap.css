@@ -162,3 +162,26 @@ body.rc-on{overflow:hidden}
   #recap *,#recap *::before{animation-duration:.01ms!important;animation-iteration-count:1!important}
   #recap .rc-in>*{opacity:1;transform:none}
 }
+
+/* Historias de liga, bromas y «sonando ahora» */
+#recap .rc-k-liga{background:linear-gradient(160deg,#FF4632,#F573A0)}
+#recap .rc-k-cifras{background:#1DB954}
+#recap .rc-k-honores{background:#2D46B9}
+#recap .rc-k-liga .rc-big{font-size:clamp(46px,12.5vw,84px)}
+#recap .rc-grid3{grid-template-columns:1fr 1fr;row-gap:18px}
+#recap .rc-grid3 b{font-size:clamp(50px,14vw,72px)}
+#recap .rc-quip{font:italic 700 17px/1.35 Barlow,"Segoe UI",Arial,sans-serif;margin:16px 0 0;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.22);border-left:4px solid var(--lime);max-width:420px}
+#recap .rc-awards{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+#recap .rc-awards li{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px 12px}
+#recap .rc-awards small{display:block;font:700 11px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.1em;opacity:.8}
+#recap .rc-awards b{font:italic 900 24px/1 "Big Shoulders Display",Impact,sans-serif;text-transform:uppercase}
+#recap .rc-face.sm{width:46px;height:46px;flex:0 0 auto;box-shadow:0 0 0 2px #fff}
+#recap .rc-face-x{display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.2);font-size:22px}
+#recap .rc-np{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:8px;
+  font:700 12px Barlow,"Segoe UI",Arial,sans-serif;background:rgba(0,0,0,.35);padding:7px 12px;border-radius:999px;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#recap .rc-s.on .rc-in>.rc-np{animation:rcFade .6s 1.2s forwards}
+@keyframes rcFade{to{opacity:.9}}
+#recap .rc-np-eq{display:inline-flex;gap:2px;align-items:flex-end;height:12px}
+#recap .rc-np-eq i{width:3px;background:#1DB954;height:40%;animation:rcEq .7s ease-in-out infinite alternate}
+#recap .rc-np-eq i:nth-child(2){animation-delay:-.3s}#recap .rc-np-eq i:nth-child(3){animation-delay:-.5s}
+#recap .noaudio .rc-np{display:none}

@@ -29,16 +29,16 @@ function buildPlan(saved, today) {
   const plan = {};
   const add = (pid, p) => { if (!plan[pid]) plan[pid] = p; };
   const rival = (m, pid) => (m.a === pid ? m.b : m.a);
-  // 0) Día del resumen de la primera vuelta: aviso especial para todos (va antes que cualquier otro)
-  if (today === RECAP_FROM) {
-    Object.keys(NAMES).forEach(pid => add(pid, { title: "🎧 Tu primera vuelta ya suena",
-      body: `${nm(pid)}, gracias por hacer historia en la primera temporada de la Legends Cup. Tu resumen de la ida te espera, con canción incluida.`,
-      tag: "recap-ida", url: "./#recap" }));
-  }
   // 1) hoy y mañana
   for (const [day, word] of [[today, "Hoy"], [tomorrow, "Mañana"]]) {
     all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid =>
       add(pid, { title: `🎾 ${word} juegas`, body: `Contra ${nm(rival(m, pid))}${detail(m)}. ¡Suerte!`, tag: `daily-${today}` })));
+  }
+  // 1b) Día del resumen de la primera vuelta: aviso especial (quien juega hoy ya tiene su «Hoy juegas»)
+  if (today === RECAP_FROM) {
+    Object.keys(NAMES).forEach(pid => add(pid, { title: "🎧 Tu primera vuelta ya suena",
+      body: `${nm(pid)}, gracias por hacer historia en la primera temporada de la Legends Cup. Tu resumen de la ida te espera, con canción incluida.`,
+      tag: "recap-ida", url: "./#recap" }));
   }
   // 2) jornada a punto de cerrar sin fecha
   const j = JORNADAS.findIndex(([a, b]) => today >= a && today <= b) + 1;
