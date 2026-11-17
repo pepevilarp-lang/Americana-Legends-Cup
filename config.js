@@ -18,8 +18,9 @@ window.LIGA_CONFIG = {
   // Clave pública de los avisos (no es secreta). La clave privada va en Vercel, nunca aquí.
   PUSH_KEY: "BCQ4vYCWwMsxwqhbBzkBNHA42AvJpZlhUJJsOhdzRZF3V49cnWI_6IEmE3iXdP3QrWPOom2ijZBCEIcOaQOOimU",
 
-  // PIN solo para probar en tu ordenador (localhost). Con Firebase, el PIN está en las reglas de Firestore.
-  LOCAL_PIN: "2627",
+  // Código solo para probar en tu ordenador (localhost, sin Firebase). No es el de la liga:
+  // el de verdad vive en Firestore (config/acceso) y nunca se sube a GitHub.
+  LOCAL_PIN: "PRUEBA",
 
   // Cruces oficiales de la ida (J1–J9), en el mismo orden que la web original.
   // La vuelta (J10–J18) repite cada jornada con los cruces invertidos.
