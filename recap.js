@@ -31,6 +31,8 @@ const SONGS = {
   paso:     {t:"Lo Que Pasó, Pasó",    a:"Daddy Yankee",                  id:1786000220, ok:x=>x.R.pj>0&&x.R.pp>=x.R.pg, why:x=>`Balance de ${x.R.pg}–${x.R.pp}. Lo que pasó, pasó: en febrero, borrón y cuenta nueva.`},
   bonito:   {t:"Me Porto Bonito",      a:"Bad Bunny & Chencho Corleone",  id:1622045634, ok:x=>x.R.pj>0, why:x=>`${x.R.pg}–${x.R.pp} y ${x.R.pos}.º puesto. Una ida sin sobresaltos: te has portado bonito.`},
 };
+const q_=s=>encodeURIComponent(s.t+" "+s.a.split(/,|&/)[0].trim());
+const listenLinks=s=>`<a class="rc-l sp" href="https://open.spotify.com/search/${q_(s)}" target="_blank" rel="noopener">Spotify</a><a class="rc-l am" href="https://music.apple.com/es/search?term=${q_(s)}" target="_blank" rel="noopener">Apple Music</a><a class="rc-l yt" href="https://music.youtube.com/search?q=${q_(s)}" target="_blank" rel="noopener">YouTube</a>`;
 const spotifyUrl = s => `https://open.spotify.com/search/${encodeURIComponent(s.t+" "+s.a.split(/,|&/)[0].trim())}`;
 
 /* ---------- Números de la ida ---------- */
@@ -164,6 +166,7 @@ const TR = {
   bonito:   {t:"Bonito",               a:"Jarabe de Palo",           id:306349246},
   granoche: {t:"Mi Gran Noche",        a:"Raphael",                  id:734819808},
 };
+const HOOK = {"september": "Porque todo arrancó un 28 de septiembre.","migente": "Porque esto va de mi gente: 10 amigos y una liga.","amanecer": "Porque hay partidos que se aplazan hasta el amanecer.","porahi": "Porque, con tanto aplazamiento, medio liga estaba bailando por ahí.","vivir": "Porque esta liga se vive. Y tú la vives así.","limbo": "Porque hay quien juega en otra dimensión.","shaky": "Porque estos números hacen temblar a cualquiera.","inmyhead": "Porque esas derrotas siguen en tu cabeza.","bici": "Porque la tabla sube y baja como una bicicleta.","perdon": "Porque hay temporadas que piden perdón.","dura": "Porque así de dura ha sido tu ida.","culpa": "Porque a alguien hay que echarle la culpa.","amigos": "¿Amigos? En la pista no hay amigos.","abusadora": "Porque hay rivales que abusan sin piedad.","pajaritos": "Porque ese día te pintaron pajaritos.","bailando": "Porque ese día bailaste a tu rival.","gozadera": "Porque la grada es una gozadera.","corazon": "Gracias, de corazón.","livin": "Porque esta liga es la vida loca.","mordidita": "Porque cada partido deja su mordidita.","ventepaca": "Vente pa' cá, que esto no ha acabado.","subeme": "Súbele el volumen a estos números.","bailamos": "Porque en la pista bailamos todos.","chantaje": "Porque contra algunos rivales todo vale.","tortura": "Porque hay partidos que son una tortura.","hips": "Porque los números no mienten.","loca": "Porque esta ida ha sido una locura.","partio": "Porque hay derrotas que te dejan el corazón partío.","rakata": "Porque ganaste a ritmo de rakata.","levanto": "Porque esta liga te ha levantado.","daledon": "Porque había que darle. Y le diste.","salio": "Porque al final siempre sale el sol.","ellayyo": "Porque algunas rivalidades son cosa de dos.","obsesion": "Porque esa derrota ya es una obsesión.","propuesta": "Porque la revancha es una propuesta indecente.","travesuras": "Porque en la pista hiciste tus travesuras.","felices": "Porque aquí cabemos todos: felices los diez.","hawai": "Porque arriba de la tabla se está como en Hawái.","sixam": "Porque hay partidos que parece que acaban a las 6 AM.","ayvamos": "¡Ay, vamos! Que esto sigue.","ginza": "Porque esta grada lo pide.","calma": "Porque todo, con calma.","taxi": "Porque esta racha no la para ni un taxi.","camisa": "Porque hay días de camisa negra.","adios": "Porque a Dios le pides una segunda vuelta así.","mayores": "Porque esto ya es cosa de mayores.","sincontrato": "Porque aquí se juega sin contrato y con orgullo.","lomalo": "Porque lo malo también se celebra.","megustas": "Porque esta liga, sencillamente, nos gusta.","bonito": "Porque, al final, todo te parece bonito.","granoche": "Porque esta primera vuelta ha sido una gran noche."};
 /* Ánimos: cada historia tira de uno; a cada jugador le tocan canciones distintas y sin repetir artista */
 const MOOD = {
   fiesta:   ["migente","gozadera","bailando","vivir","limbo","shaky","livin","mordidita","ventepaca","subeme","bailamos","hips","loca","levanto","daledon","salio","travesuras","felices","hawai","sixam","ayvamos","ginza","calma","taxi","camisa","mayores","lomalo","bici","rakata"],
@@ -197,6 +200,15 @@ function bgFor(k,x,L){
   return "fiesta";
 }
 /* Elige la canción de una historia: fija si la broma lo pide; si no, del ánimo, distinta por jugador */
+function hookFor(key,k,x,L){
+  if(key==="limbo"&&x.id==="alvaro") return "Porque al DJ de la liga se le recibe con su música.";
+  if(key==="abusadora"&&x.nemesis) return `Porque ${P[x.nemesis].first} te ha repasado sin piedad.`;
+  if(key==="amigos"&&x.nemesis) return `¿Amigos? ${P[x.nemesis].first} no se acordó en la pista.`;
+  if(key==="porahi"&&L.late) return `Porque con ${L.late} aplazados medio liga estaba bailando por ahí.`;
+  if(key==="pajaritos"&&x.match) return `Porque contra ${P[x.match.m.a===x.id?x.match.m.b:x.match.m.a].first} te pintaron pajaritos.`;
+  if(key==="bailando"&&x.match&&x.match.won) return `Porque ese día bailaste a ${P[x.match.m.a===x.id?x.match.m.b:x.match.m.a].first}.`;
+  return HOOK[key]||"";
+}
 function pickTrack(k,x,L,used,usedArt){
   const want=bgFor(k,x,L), ok=key=>TR[key]&&!used.has(key)&&!usedArt.has(artistKey(TR[key].a));
   let key=null;
@@ -304,16 +316,23 @@ const audio=new Audio(); audio.loop=true; audio.preload="auto"; audio.setAttribu
 const pre=new Audio(); pre.preload="auto"; pre.muted=true;
 let curTrack=null, muted=false, fadeT=null, onErr=null;
 audio.addEventListener("error",()=>{ if(audio.src&&audio.src!==SILENT&&onErr) onErr(); });
-function urlOf(id){ return PREV&&PREV[id]&&PREV[id].url; }
+const BLOB={}, Q=[]; let active=0;
+function prefetch(ids){ ids.forEach(id=>{ if(id&&!BLOB[id]&&!Q.includes(id)) Q.push(id); }); pump(); }
+function pump(){ while(active<2&&Q.length){ const id=Q.shift(), u=PREV&&PREV[id]&&PREV[id].url; if(!u||BLOB[id]) continue; active++;
+  fetch(u).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status)).then(buf=>{ BLOB[id]=URL.createObjectURL(new Blob([buf],{type:"audio/mp4"})); })
+    .catch(()=>{}).finally(()=>{ active--; pump(); }); } }
+function urlOf(id){ return BLOB[id]||(PREV&&PREV[id]&&PREV[id].url); }
 function unlockAudio(){ if(audio._u) return; audio._u=true;
   try{ if(!audio.src) audio.src=SILENT; const p=audio.play(); if(p) p.then(()=>{ if(!curTrack) audio.pause(); }).catch(e=>{ if(!(e&&e.name==="AbortError")) audio._u=false; }); }catch(e){ audio._u=false; } }   // AbortError = ya cambió a la primera canción: está activado
-function preloadNext(id){ const u=urlOf(id); if(u&&pre.src!==u){ try{ pre.src=u; pre.load(); }catch(e){} } }
+function preloadNext(id){ prefetch([id]); }
 function playTrack(id,onFail){
   if(id&&id===curTrack){ if(audio.paused) audio.play().catch(()=>{}); return; }
   curTrack=id; onErr=null; clearInterval(fadeT);
   if(!id){ audio.pause(); return; }
   const u=urlOf(id); if(!u){ curTrack=null; onFail&&onFail(); return; }
-  onErr=()=>{ if(curTrack===id){ curTrack=null; onFail&&onFail(); } };
+  onErr=()=>{ if(curTrack!==id) return;
+    if(BLOB[id]&&audio.src===BLOB[id]&&PREV[id]){ delete BLOB[id]; audio.src=PREV[id].url; audio.play().catch(()=>{}); return; }   // si la copia en memoria falla, directo
+    curTrack=null; onFail&&onFail(); };
   audio.src=u; audio.muted=muted; try{ audio.volume=0; }catch(e){}
   const pr=audio.play();                      // dentro del toque si lo hay; si no, vale porque ya se activó
   const fadeIn=()=>{ let v=0; fadeT=setInterval(()=>{ v=Math.min(1,v+.1); try{ audio.volume=v; }catch(e){} if(v>=1) clearInterval(fadeT); },45); };
@@ -324,21 +343,22 @@ function isPlaying(id){ return curTrack===id&&!audio.paused&&audio.currentTime>.
 function playSlide(s,sec){
   const i=RC.i, tries=[s.track,...(s.alts||[])].filter(Boolean); let n=0;
   const attempt=()=>{ if(!RC||RC.i!==i) return; const id=tries[n++]; if(!id){ sec.classList.add("noaudio"); return; }
-    if(n>1){ const tr=Object.values(TR).find(z=>z.id===id); const np=sec.querySelector(".rc-np"); if(tr&&np) np.innerHTML=nowPlaying(tr).replace(/^<div[^>]*>|<\/div>$/g,""); }
+    if(n>1){ const e=Object.entries(TR).find(([,z])=>z.id===id); const np=sec.querySelector(".rc-np"); if(e&&np){ np.outerHTML=nowPlaying(e[1],HOOK[e[0]]); fillArt(sec); } }
     playTrack(id,()=>attempt());
     clearTimeout(RC.wd); RC.wd=setTimeout(()=>{ if(!RC||RC.i!==i||curTrack!==id) return;
       if(isPlaying(id)||audio.readyState>=3) return;      // ya suena o está a punto
       attempt(); },3500); };
   if(!s.track) playTrack(null); else attempt();
-  const nx=RC.data.list[i+1]; if(nx&&nx.track) preloadNext(nx.track);
+  prefetch(RC.data.list.slice(i+1,i+4).map(z=>z.track));
 }
 function stopAudio(){ curTrack=null; onErr=null; clearInterval(fadeT); try{ audio.pause(); }catch(e){} }
 function setMuted(v){ muted=v; audio.muted=v; }
 
+function fillArt(root){ if(!PREV) return; root.querySelectorAll("img[data-art]").forEach(im=>{ const p=PREV[im.dataset.art]; if(p&&p.art&&!im.src) im.src=p.art.replace("600x600bb","200x200bb"); }); }
 /* ---------- Historias ---------- */
 const fmtN=n=>Number(n).toLocaleString("es-ES");
 const face=(id,cls="")=>`<span class="rc-face ${cls}" style="--c:${P[id].color}"><img src="${IMG(id)}" alt=""></span>`;
-const nowPlaying=s=>s?`<div class="rc-np" aria-hidden="true"><span class="rc-np-eq"><i></i><i></i><i></i></span>${esc(s.t)} · ${esc(s.a)}</div>`:"";
+const nowPlaying=(s,hook)=>s?`<div class="rc-np" aria-hidden="true"><img class="rc-np-art" data-art="${s.id}" alt=""><span class="rc-np-txt"><span class="rc-np-t"><span class="rc-np-eq"><i></i><i></i><i></i></span>${esc(s.t)} · ${esc(s.a)}</span>${hook?`<em>${esc(hook)}</em>`:""}</span></div>`:"";
 function matchLine(m,me){ const r=result(m); const op=m.a===me?m.b:m.a; const sets=r.sets.map(s=>m.a===me?`${s.a}-${s.b}`:`${s.b}-${s.a}`).join(" · "); return {op,sets,j:m.j}; }
 
 function slides(id){
@@ -348,7 +368,7 @@ function slides(id){
   const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);   // el artista de tu canción no suena antes
   const add=(k,d,h,track)=>{ let tr=null, key=null;
     if(track===undefined){ key=pickTrack(k,x,L,used,usedArt); tr=key&&TR[key]; }
-    out.push({k,d,h:h+(tr?nowPlaying(tr):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
+    out.push({k,d,h:h+(tr?nowPlaying(tr,hookFor(key,k,x,L)):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
   /* 1-3 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
@@ -404,7 +424,7 @@ function slides(id){
     <h2 class="rc-song">${esc(S2.t)}</h2><div class="rc-artist">${esc(S2.a)}</div>
     <div class="rc-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
     <p class="rc-lead">${esc(S2.why(x))}</p>
-    <a class="rc-spot" href="${spotifyUrl(S2)}" target="_blank" rel="noopener" data-nostep>▶ Abrir en Spotify</a>`,S2.id);
+    <div class="rc-listen" data-nostep><small>Escúchala entera</small>${listenLinks(S2)}</div>`,S2.id);
   add("card",0,`<div class="rc-kick">Tu resumen</div>
     <div class="rc-card" style="--c:${p.color}">
       <div class="rc-card-top">${face(id)}<div><b>${esc(p.name)}</b><small>${esc(p.nick)} · Primera vuelta</small></div></div>
@@ -412,7 +432,8 @@ function slides(id){
       <div class="rc-card-song">🎧 Tu canción es <b>${esc(S2.t)}</b> · ${esc(S2.a)}<span>${esc(S2.why(x))}</span></div>
       <div class="rc-card-foot">Americana Legends Cup · Vol. 1</div>
     </div>
-    <div class="rc-actions" data-nostep><button class="btn ball" data-rc-share>Compartir mi ida</button><a class="btn ghost" href="${spotifyUrl(S2)}" target="_blank" rel="noopener">Spotify</a></div>`,S2.id);
+    <div class="rc-actions" data-nostep><button class="btn ball" data-rc-share>Compartir mi ida</button></div>
+    <div class="rc-listen" data-nostep>${listenLinks(S2)}</div>`,S2.id);
   add("thanks",0,`<div class="rc-kick">Gracias</div>
     <h2 class="rc-big">Gracias por hacer historia.</h2>
     <p class="rc-lead">Esta es la primera temporada de la Americana Legends Cup y existe porque ${PLAYERS.length} amigos decidieron tomársela en serio. Gracias por cada partido, cada voto, cada aplazamiento y cada pique en el grupo.</p>
@@ -428,6 +449,28 @@ async function loadOpens(){
   try{ const d=await Store.db.collection("stats").doc("opens").get(); Store.recapOpens=d.exists?d.data():{}; VERSION++; }catch(e){}
 }
 const trackIds=d=>[...new Set(d.list.flatMap(s=>[s.track,...(s.alts||[]).slice(0,1)]).filter(Boolean))];
+/* Rótulo gigante que cruza el fondo de cada historia */
+function tickerFor(k,id,x,song){
+  const R=x.R, T={liga:"PRIMERA VUELTA",cifras:"LA IDA EN CIFRAS",honores:"APLAZADOS",intro:P[id].first.toUpperCase(),nums:"TUS NÚMEROS",none:"DESDE LA GRADA",
+    pos:`${R.pos}º PUESTO`,streak:"CARÁCTER",rivals:"RIVALES",match:"PARTIDAZO",crowd:"LA GRADA",tease:"BANDA SONORA",song:song.t.toUpperCase(),card:"TU IDA",thanks:"GRACIAS"};
+  const w=T[k]||"LEGENDS CUP"; return `<div class="rc-tick" aria-hidden="true"><span>${(esc(w)+" · ").repeat(6)}</span><span>${(esc(w)+" · ").repeat(6)}</span></div>`;
+}
+/* Titulares palabra a palabra */
+function splitWords(root){
+  root.querySelectorAll(".rc-big,.rc-h,h2.rc-song").forEach(h=>{ let n=0;
+    [...h.childNodes].forEach(nd=>{ if(nd.nodeType!==3) return; const f=document.createDocumentFragment();
+      nd.textContent.split(/(\s+)/).forEach(w=>{ if(!w) return; if(/^\s+$/.test(w)){ f.appendChild(document.createTextNode(" ")); return; }
+        const sp=document.createElement("span"); sp.className="w"; sp.style.setProperty("--i",n++); sp.textContent=w; f.appendChild(sp); });
+      h.replaceChild(f,nd); }); });
+}
+/* Ajusta cada titular al ancho de la pantalla (palabras largas como DESHONORES) */
+function fitText(root){
+  root.querySelectorAll(".rc-big,.rc-h,h2.rc-song").forEach(h=>{ h.style.fontSize=""; let fs=parseFloat(getComputedStyle(h).fontSize), n=0;
+    const max=h.clientWidth; if(!max) return;
+    const widest=()=>Math.max(...[...h.querySelectorAll(".w")].map(w=>w.offsetWidth),0);
+    while(widest()>max&&fs>22&&n++<30){ fs*=.94; h.style.fontSize=fs+"px"; } });
+}
+const FX=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];
 async function openRecap(id){
   /* Cada uno solo ve el suyo (en modo prueba local se puede pedir otro para revisar) */
   id=(Store.local&&id)||Store.myPlayer||S.me; if(!P[id]) return;
@@ -438,12 +481,14 @@ async function openRecap(id){
   el.style.setProperty("--c",P[id].color);
   el.innerHTML=`<div class="rc-bars">${data.list.map(()=>`<i><b></b></i>`).join("")}</div>
     <button class="rc-x" data-rc-close aria-label="Cerrar">×</button><button class="rc-mute" data-rc-mute aria-label="Silenciar">${muted?"🔇":"🔊"}</button>
-    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-in">${s.h}</div></section>`).join("")}</div>
+    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k} ${FX[i%FX.length]}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-shape s1"></div><div class="rc-shape s2"></div>${tickerFor(s.k,id,data.x,data.song)}<div class="rc-in">${s.h}</div></section>`).join("")}</div>
     <div class="rc-start"><div class="rc-in"><div class="rc-kick">Americana Legends Cup · Vol. 1</div><h1 class="rc-big">La primera vuelta ya suena</h1><p class="rc-lead">${esc(P[id].first)}: cada historia tiene su canción. Sube el volumen.</p><button class="btn ball" data-rc-go>Empezar 🎧</button></div></div>`;
+  splitWords(el);
   document.body.appendChild(el); document.body.classList.add("rc-on");
+  fitText(el); try{ document.fonts&&document.fonts.ready.then(()=>RC&&RC.el===el&&fitText(el)); }catch(e){}
   RC={el,id,data,i:-1,t0:0,left:0,timer:null,paused:false};
   previews().then(pv=>{ const s=pv[data.song.id]; if(!RC||RC.id!==id) return; const art=el.querySelector(".rc-art"); if(art&&s&&s.art) art.src=s.art;
-    if(RC.i>=0&&!curTrack) go(RC.i); else preloadNext(data.list[0].track); });
+    fillArt(el); prefetch(data.list.map(z=>z.track)); if(RC.i>=0&&!curTrack) go(RC.i); });
   el.addEventListener("click",onClick); el.addEventListener("pointerdown",onDown); el.addEventListener("pointerup",onUp); el.addEventListener("pointercancel",onUp);
   document.addEventListener("keydown",onKey);
   try{ localStorage.setItem("am_recap_seen","1"); }catch(e){}
@@ -456,8 +501,11 @@ function closeRecap(silent){
 }
 function go(i){
   if(!RC) return; const n=RC.data.list.length; i=Math.max(0,Math.min(n-1,i));
-  RC.i=i; clearTimeout(RC.timer);
-  RC.el.querySelectorAll(".rc-s").forEach((s,k)=>{ s.classList.toggle("on",k===i); s.classList.toggle("past",k<i); });
+  const prev=RC.i; RC.i=i; clearTimeout(RC.timer);
+  const tp=RC.tap||{x:innerWidth*.8,y:innerHeight*.5}; RC.tap=null;
+  RC.el.style.setProperty("--tx",tp.x+"px"); RC.el.style.setProperty("--ty",tp.y+"px");
+  RC.el.classList.toggle("back",i<prev);
+  RC.el.querySelectorAll(".rc-s").forEach((s,k)=>{ s.classList.toggle("on",k===i); s.classList.toggle("past",k<i); s.classList.toggle("out",k===prev&&k!==i); });
   RC.el.querySelectorAll(".rc-bars i").forEach((b,k)=>{ b.className=k<i?"done":k===i?"now":""; });
   const s=RC.data.list[i], sec=RC.el.querySelector(`.rc-s[data-i="${i}"]`);
   RC.el.querySelector(".rc-bars").style.setProperty("--d",(s.d||0)+"ms");
@@ -485,7 +533,7 @@ function onClick(e){
   if(RC.i<0) return;
   if(Date.now()-downAt>350&&downAt) { downAt=0; return; }   // mantener pulsado = pausa, no avanza
   downAt=0;
-  const x=e.clientX/window.innerWidth; go(RC.i+(x<.3?-1:1));
+  RC.tap={x:e.clientX,y:e.clientY}; const x=e.clientX/window.innerWidth; go(RC.i+(x<.3?-1:1));
 }
 function onKey(e){ if(!RC) return; if(e.key==="Escape") closeRecap(); else if(e.key==="ArrowRight") go(RC.i+1); else if(e.key==="ArrowLeft") go(RC.i-1); }
 
@@ -541,7 +589,7 @@ function maybeAuto(){
   if(want||(today()>=RECAP_FROM&&!seen)){ if(available()) openRecap(); }
   return true;
 }
-const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); countOpen(); if(available()) previews(); } },800);
+const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); countOpen(); if(available()) previews().then(()=>{ try{ const me=Store.myPlayer||S.me; if(P[me]) prefetch(slides(me).list.map(z=>z.track).slice(0,4)); }catch(e){} }); } },800);
 /* Contador de entradas a la app (una por sesión): alimenta «habéis entrado X veces» */
 function countOpen(){
   try{ if(sessionStorage.getItem("am_opened")) return; sessionStorage.setItem("am_opened","1"); }catch(e){ return; }
