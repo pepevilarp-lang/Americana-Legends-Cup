@@ -123,10 +123,10 @@ function planner(m,{compact}={}){
   const {w,r}=pd, mine=isPlayer?picksOf(m.id,me):[], rivPicks=riv?picksOf(m.id,riv):[];
   const daysLeft=AC.diff(today(),w.end);
   const head=`<div class="ag-head">${av(m.a,"sm")}<b>${esc(nm(m.a))}</b><span>vs</span><b>${esc(nm(m.b))}</b>${av(m.b,"sm")}
-    <em class="${r.late?"late":daysLeft<=2?"warn":""}">J${w.j} · ${r.late?"aplazado":daysLeft===0?"último día":`quedan ${daysLeft} días`}</em></div>`;
+    <em class="${r.late?"late":daysLeft<=2?"warn":""}">${r.late?"⚠️ Aplazado":daysLeft===0?"⏳ Último día":`Sin fecha · quedan ${daysLeft} día${daysLeft===1?"":"s"}`} · J${w.j}</em></div>`;
   let body="";
   if(isPlayer&&!filled(me)){
-    body=`<p class="ag-msg">Contesta 3 preguntas y la app te busca hueco con ${esc(nm(riv))}.</p><button class="btn ball ag-cta" data-ag-wizard>🗓️ Montar mi agenda (30 s)</button>`;
+    body=`<p class="ag-msg">Contesta 3 preguntas y la app te busca hueco con ${esc(nm(riv))}.</p><button class="btn ball ag-cta" data-ag-wizard>🗓️ Montar mi agenda (30 s)</button><div class="ag-actions"><button class="btn wa sm" data-x="wa" data-id="${m.id}" data-k="${AC.diff(today(),w.end)<0?"late":"nodate"}">💬 WhatsApp</button></div>`;
   } else {
     const rivName=riv?nm(riv):"";
     const keys=new Set(), chips=[];
@@ -139,24 +139,38 @@ function planner(m,{compact}={}){
     mine.forEach(k=>push(k,{}));
     const outside=r.slots.some(s=>s.outside)?`<p class="ag-note">⚠️ Fuera del plazo de la jornada: contará como aplazado.</p>`:"";
     body=`<p class="ag-msg">${msg}</p><div class="ag-slots">${chips.join("")||`<p class="ag-note">Sin propuestas todavía.</p>`}</div>${outside}`;
-    if(isPlayer) body+=`<div class="ag-actions"><button class="btn ghost sm" data-ag-custom="${m.id}">＋ Otra fecha</button>${r.missing.includes(riv)?`<button class="btn ghost sm" data-ag-ask="${m.id}">🔔 Pedírselo a ${esc(rivName)}</button>`:""}<button class="btn ghost sm" data-ag-wizard>Mi agenda</button></div>
+    if(isPlayer) body+=`<div class="ag-actions"><button class="btn ghost sm" data-ag-custom="${m.id}">＋ Otra fecha</button><button class="btn wa sm" data-x="wa" data-id="${m.id}" data-k="${r.late?"late":"nodate"}">💬 WhatsApp</button>${r.missing.includes(riv)?`<button class="btn ghost sm" data-ag-ask="${m.id}">🔔 Pedírselo a ${esc(rivName)}</button>`:""}<button class="btn ghost sm" data-ag-wizard>Mi agenda</button></div>
       <div class="ag-customf hidden" id="agc-${m.id}"><input type="date" min="${today()}" aria-label="Día"><input type="time" value="${AC.FK[r.slots[0]?r.slots[0].f:"n"].def}" aria-label="Hora"><button class="btn ball sm" data-ag-addc="${m.id}">Proponer</button></div>`;
   }
   return `<div class="ag-card${compact?" compact":""}" id="ag-${m.id}">${compact?"":head}${body}</div>`;
 }
 
-/* Tarjeta en «Hoy»: mis partidos por cuadrar */
-function hoyCard(){
-  const me=myId(); if(!me||!Agenda.ready||Agenda.blocked) return "";
-  const list=toPlan(me);
-  if(!list.length){
-    if(filled(me)) return "";
-    return `<section class="ag-wrap"><div class="ag-intro"><div><small>Nuevo</small><b>Agenda inteligente</b><span>3 preguntas y la app cuadra tus partidos con tu rival.</span></div><button class="btn ball" data-ag-wizard>Empezar</button></div></section>`;
-  }
-  return `<section class="ag-wrap"><h2>🗓️ Partidos por cuadrar</h2>${list.map(m=>planner(m)).join("")}</section>`;
+/* «Avisos» + «Partidos por cuadrar», juntos en una sola sección de Hoy:
+   1) tus partidos de hoy/mañana  2) tus partidos sin fecha o aplazados, con la agenda  3) avisos del resto */
+const xAlertsPrev=window.xAlerts;
+function alertRow(a){
+  return `<div class="xt-al k-${a.k} ${a.mine?"mine":""}">
+    <div class="xt-al-top"><span class="xt-av">${av(a.m.a,"sm")}${av(a.m.b,"sm")}</span><div><b>${nm(a.m.a)} – ${nm(a.m.b)}</b><div class="xt-kind">${XT.alertText(a)} · ${XT.jLabel(a.m)}${a.mine?" · TU PARTIDO":""}</div></div></div>
+    <div class="xt-al-btns"><button class="btn ghost" data-open-match="${a.m.id}">Ver partido</button><button class="btn wa" data-x="wa" data-id="${a.m.id}" data-k="${a.k}">💬 WhatsApp</button></div></div>`;
 }
-const vHoyPrev=VIEWS.hoy;
-VIEWS.hoy=function(){ const base=vHoyPrev(); const card=hoyCard(); if(!card) return base; const k=base.indexOf("</section>"); return k>=0?base.slice(0,k+10)+card+base.slice(k+10):card+base; };
+window.xAlerts=function(){
+  const me=myId();
+  const X=window.XT;
+  if(!me||!Agenda.ready||Agenda.blocked||!X) return xAlertsPrev?xAlertsPrev():"";
+  const L=X.alertsData(), list=toPlan(me);
+  const mineDated=L.filter(a=>a.mine&&(a.k==="today"||a.k==="tomorrow"));
+  const others=L.filter(a=>!a.mine);
+  const tail=X.recentLog();
+  let intro="";
+  if(!filled(me)&&!list.length) intro=`<div class="ag-intro"><div><small>Nuevo</small><b>Agenda inteligente</b><span>3 preguntas y la app cuadra tus partidos con tu rival.</span></div><button class="btn ball" data-ag-wizard>Empezar</button></div>`;
+  if(!mineDated.length&&!list.length&&!others.length) return (intro?`<section class="ag-wrap">${intro}</section>`:"")+tail;
+  const n=mineDated.length+list.length;
+  return `<section class="ag-wrap xt-alerts" aria-label="Avisos"><h2>Avisos${n?` <span class="xt-badge">${n} tuyo${n===1?"":"s"}</span>`:""}</h2>
+    ${intro}${mineDated.map(alertRow).join("")}
+    ${list.length?`${mineDated.length?`<h3 class="ag-sub">Por cuadrar</h3>`:""}${list.map(m=>planner(m)).join("")}`:""}
+    ${others.length?`<h3 class="ag-sub">En la liga</h3><div class="ag-others">${others.slice(0,4).map(alertRow).join("")}</div>${others.length>4?`<p class="mini">y ${others.length-4} más en el calendario.</p>`:""}`:""}
+  </section>`+tail;
+};
 
 /* Dentro de la ficha del partido */
 const openMatchPrev=window.openMatch;
@@ -270,7 +284,7 @@ function maybePopup(){
   if(force){ n=+force-1; } else if(n>=3||last===today()) return true;
   try{ localStorage.setItem("am_agpop_n",n+1); localStorage.setItem("am_agpop_d",today()); }catch(e){}
   /* El gancho: el neuralizador, con destello */
-  const V={img:"img/agenda-pop2.webp",pos:"center 38%",kick:"Mira aquí 👆",title:"A partir de ahora, olvida los aplazamientos",stamp:"¡FLASH!",flash:true};
+  const V={img:"img/agenda-pop2.webp",pos:"40% 62%",kick:"Mira aquí 👆",title:"A partir de ahora, olvida los aplazamientos",stamp:"¡FLASH!",flash:true};
   const el=document.createElement("div"); el.id="agp"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Agenda inteligente");
   el.innerHTML=`${V.flash?'<div class="agp-flash" aria-hidden="true"></div>':""}<div class="agp-box"><button class="agw-x" data-agp-close aria-label="Cerrar">×</button>
     <div class="agp-img"><img src="${V.img}" alt="" style="object-position:${V.pos}"><span class="agp-stamp">${V.stamp}</span></div>

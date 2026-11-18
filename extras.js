@@ -184,6 +184,8 @@ window.xAlerts=function(){
     <div class="xt-al-btns"><button class="btn ghost" data-open-match="${a.m.id}">${a.k==="nodate"||a.k==="late"?"Fijar fecha":"Ver partido"}</button><button class="btn wa" data-x="wa" data-id="${a.m.id}" data-k="${a.k}">💬 WhatsApp</button></div></div>`).join("")}
   ${L.length>6?`<p class="mini">y ${L.length-6} más en el calendario.</p>`:""}</section>`+recentLog();
 };
+/* Para la agenda (agenda.js), que junta estos avisos con los partidos por cuadrar */
+window.XT={alertsData:(...x)=>alertsData(...x),alertText:a=>alertText(a),jLabel:m=>jLabel(m),recentLog:()=>recentLog()};
 function recentLog(){
   const L=logEntries().slice(0,3); if(!L.length) return "";
   return `<section class="xt-recent"><h3>Última hora</h3><div class="panel">${L.map(logRow).join("")}</div><div class="btnrow"><button class="btn ghost" data-tab="registro">Ver todo el registro</button></div></section>`;

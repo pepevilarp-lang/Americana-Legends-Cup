@@ -130,3 +130,15 @@ body.agw-on{overflow:hidden}
 .agp-flash{position:fixed;inset:0;z-index:9600;pointer-events:none;background:#fff;animation:agpFlash 1.1s ease-out forwards}
 @keyframes agpFlash{0%{opacity:0}8%{opacity:1}30%{opacity:.95}100%{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){ .agp-flash{display:none} }
+
+/* Avisos y partidos por cuadrar, juntos */
+.ag-wrap.xt-alerts .ag-sub{margin:16px 0 8px;font:800 12px var(--body);text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+.ag-wrap .ag-intro{margin-bottom:12px}
+.ag-others .xt-al{opacity:.92}
+.ag-actions .btn.wa{border-radius:10px}
+/* La foto del neuralizador: que se vea la mano señalando el móvil */
+.agp-img{height:min(52vh,400px)}
+.agp-img::after{background:linear-gradient(to bottom,transparent 72%,var(--deep))}
+.agp-body{margin-top:-18px}
+.agp-body h2{font-size:min(8.2vw,44px);overflow-wrap:normal}
+@media (max-height:700px){ .agp-img{height:min(40vh,400px)} .agp-body p{font-size:14px;margin-bottom:12px} .agp-go{padding:12px} }
