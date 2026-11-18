@@ -156,10 +156,10 @@ const Store = {
     }
     if(window.pushOk && !(await window.pushOk())){ setGate("push"); return; }
     if(localStorage.getItem("am_ok")==="1"){ this.member=true; this.listen(); return; }
-    /* El PIN va con la cuenta: si esta cuenta ya lo metió en otro dispositivo, puede leer los partidos y no se vuelve a pedir */
+    /* Sin código: es miembro quien ha iniciado sesión con Google y tiene su cara (lo deciden las reglas de Firestore) */
     try{ await this.db.collection("matches").limit(1).get(); localStorage.setItem("am_ok","1"); this.member=true; this.listen(); return; }
-    catch(e){ if(!isPerm(e)) console.error(e); }
-    setGate("pin");
+    catch(e){ if(!isPerm(e)){ console.error(e); setGate("error","No se pudo conectar con la liga. Revisa la conexión y recarga."); return; } }
+    setGate("error","Tu cuenta no tiene acceso a la liga. Si eres jugador, avisa al organizador.");
   },
   /* El correo que ven las reglas de Firebase es el del token de sesión: se usa ese mismo para guardar la reserva */
   async tokenMail(){
@@ -256,7 +256,7 @@ const Store = {
       if(col==="matches"){ setSync(true,"En directo para todos"); if(!this.first){ this.first=true; hideGate(); } }
       this.bump();
     }, err=>{ console.error(err);
-      if(isPerm(err)) this.lock("Tu acceso ha caducado (el código de la liga ha cambiado). Vuelve a meterlo.");
+      if(isPerm(err)) this.lock("No se ha podido comprobar tu acceso. Recarga la app; si sigue pasando, avisa al organizador.");
       else setSync(false,"Sin conexión con la base de datos"); });
     this.unsubs=[on("matches","matches"),on("preds","preds"),on("votes","votes")];
     setTimeout(()=>{ if(this.member&&document.getElementById("gate")&&document.querySelector("#gate .gate-load")) hideGate(); },7000);
@@ -265,7 +265,8 @@ const Store = {
     if(!this.member && document.querySelector("#gate #gate-pin")) return;
     this.member=false; try{ localStorage.removeItem("am_ok"); }catch(e){}
     this.unsubs.forEach(u=>{ try{u();}catch(e){} }); this.unsubs=[]; this.listening=false; this.first=false;
-    this.matches={}; this.preds={}; this.votes={}; this.bump(); closeModal(); setGate("pin",msg);
+    this.matches={}; this.preds={}; this.votes={}; this.bump(); closeModal();
+    if(this.db) setGate("error",msg); else setGate("pin",msg);   // con Firebase ya no hay código: entra quien tiene su cara
   },
   /* Comprueba el código: lo validan las reglas de Firestore contra config/acceso. El código no está en la app ni en GitHub.
      Se normaliza (mayúsculas, sin espacios ni guiones) para que dé igual cómo lo teclee cada uno. */
@@ -297,7 +298,7 @@ const Store = {
     catch(e){
       if(prev) this[target][id]=prev; else delete this[target][id];
       this.bump();
-      if(isPerm(e)) this.lock("Tu acceso ha caducado (el código de la liga ha cambiado). Vuelve a meterlo."); else toast(errMsg);
+      if(isPerm(e)) this.lock("No se ha podido comprobar tu acceso. Recarga la app; si sigue pasando, avisa al organizador."); else toast(errMsg);
       return false;
     }
   },
