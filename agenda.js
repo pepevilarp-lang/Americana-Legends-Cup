@@ -259,9 +259,9 @@ document.addEventListener("click",async e=>{
   const ask=t.closest("[data-ag-ask]"); if(ask){ askRival(ask.dataset.agAsk); return; }
 });
 
-/* ---------- Ventana de bienvenida: «Seniors, Juniors, vayamos a solucionar…» ----------
+/* ---------- Ventana de bienvenida: «Mira aquí… olvida los aplazamientos» ----------
    Sale a quien aún no ha rellenado su agenda: como mucho una vez al día y 3 veces en total.
-   ?agpop=1 (o 2) en la URL la fuerza para probarla. */
+   ?agpop=1 en la URL la fuerza para probarla. */
 function maybePopup(){
   const me=myId(); if(!me||!Agenda.ready||Agenda.blocked||filled(me)) return false;
   if(document.getElementById("gate")||document.getElementById("recap")||document.getElementById("agw")||document.getElementById("agp")||document.body.classList.contains("mo")) return false;
@@ -269,10 +269,8 @@ function maybePopup(){
   const force=(location.search.match(/[?&]agpop=(\d)/)||[])[1];
   if(force){ n=+force-1; } else if(n>=3||last===today()) return true;
   try{ localStorage.setItem("am_agpop_n",n+1); localStorage.setItem("am_agpop_d",today()); }catch(e){}
-  /* Dos versiones que se alternan: la 1.ª y la 3.ª vez «vayamos a solucionar…», la 2.ª el neuralizador (con destello) */
-  const V=n%2===0
-    ? {img:"img/agenda-pop.webp",pos:"center 30%",kick:"Seniors, Juniors:",title:"Vayamos a solucionar los aplazamientos",stamp:"NUEVO",flash:false}
-    : {img:"img/agenda-pop2.webp",pos:"center 38%",kick:"Mira aquí 👆",title:"A partir de ahora, olvida los aplazamientos",stamp:"¡FLASH!",flash:true};
+  /* El gancho: el neuralizador, con destello */
+  const V={img:"img/agenda-pop2.webp",pos:"center 38%",kick:"Mira aquí 👆",title:"A partir de ahora, olvida los aplazamientos",stamp:"¡FLASH!",flash:true};
   const el=document.createElement("div"); el.id="agp"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Agenda inteligente");
   el.innerHTML=`${V.flash?'<div class="agp-flash" aria-hidden="true"></div>':""}<div class="agp-box"><button class="agw-x" data-agp-close aria-label="Cerrar">×</button>
     <div class="agp-img"><img src="${V.img}" alt="" style="object-position:${V.pos}"><span class="agp-stamp">${V.stamp}</span></div>
