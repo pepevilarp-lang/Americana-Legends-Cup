@@ -296,43 +296,44 @@ async function previews(){
   }catch(e){ PREV={}; }
   return PREV;
 }
-/* Un reproductor por canción: se precargan al abrir, se desbloquean todos en el toque de «Empezar»
-   (iOS solo deja sonar audio que se haya tocado en un gesto) y el cambio entre historias es inmediato. */
-const PLAYERS_A={}; let curTrack=null, muted=false;
-function player(id){ if(!id||!PREV||!PREV[id]) return null; let a=PLAYERS_A[id];
-  if(!a){ a=new Audio(); a.preload="auto"; a.loop=true; a.src=PREV[id].url; a.volume=1; PLAYERS_A[id]=a; try{ a.load(); }catch(e){} } return a; }
-function trackOk(id){ return !!(PREV&&PREV[id]); }
-function preloadTracks(ids){ ids.forEach(id=>player(id)); }
-function unlockAudio(ids){
-  ids.forEach(id=>{ const a=player(id); if(!a||a._u) return; a._u=true; a.muted=true; const p=a.play(); if(p) p.then(()=>{ if(curTrack!==id){ a.pause(); } a.muted=muted; }).catch(()=>{ a.muted=muted; }); }); }
-function fade(a,to,ms,done){ clearInterval(a._f); const from=a.volume, t0=Date.now(); a._f=setInterval(()=>{ const k=Math.min(1,(Date.now()-t0)/ms); try{ a.volume=Math.max(0,Math.min(1,from+(to-from)*k)); }catch(e){} if(k>=1){ clearInterval(a._f); done&&done(); } },40); }
+/* Un solo reproductor para todo el recap: es lo que mejor funciona en iPhone (Safari solo deja sonar
+   un elemento que se haya activado con un toque, y no precarga audio). Se activa en «Empezar» y a partir de
+   ahí va cambiando de canción. En ordenador y Android además se precarga la canción de la historia siguiente. */
+const SILENT="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+const audio=new Audio(); audio.loop=true; audio.preload="auto"; audio.setAttribute("playsinline",""); audio.setAttribute("webkit-playsinline","");
+const pre=new Audio(); pre.preload="auto"; pre.muted=true;
+let curTrack=null, muted=false, fadeT=null, onErr=null;
+audio.addEventListener("error",()=>{ if(audio.src&&audio.src!==SILENT&&onErr) onErr(); });
+function urlOf(id){ return PREV&&PREV[id]&&PREV[id].url; }
+function unlockAudio(){ if(audio._u) return; audio._u=true;
+  try{ if(!audio.src) audio.src=SILENT; const p=audio.play(); if(p) p.then(()=>{ if(!curTrack) audio.pause(); }).catch(e=>{ if(!(e&&e.name==="AbortError")) audio._u=false; }); }catch(e){ audio._u=false; } }   // AbortError = ya cambió a la primera canción: está activado
+function preloadNext(id){ const u=urlOf(id); if(u&&pre.src!==u){ try{ pre.src=u; pre.load(); }catch(e){} } }
 function playTrack(id,onFail){
-  if(id===curTrack){ const a=player(id); if(a&&a.paused) a.play().catch(()=>{}); return; }
-  const prev=curTrack&&PLAYERS_A[curTrack]; curTrack=id;
-  if(prev) fade(prev,0,350,()=>{ prev.pause(); prev.volume=1; });
-  if(!id) return;
-  const a=player(id); if(!a||a.error){ curTrack=null; onFail&&onFail(); return; }
-  try{ a.currentTime=0; }catch(e){}
-  a.muted=muted; a.volume=prev?0:1;
-  const pr=a.play();                       // se llama dentro del toque: iOS lo permite
-  const ok=()=>{ if(prev) fade(a,1,500); };
-  if(pr) pr.then(ok).catch(e=>{ if(curTrack===id) curTrack=null; if(!(e&&e.name==="AbortError")) onFail&&onFail(); }); else ok();
+  if(id&&id===curTrack){ if(audio.paused) audio.play().catch(()=>{}); return; }
+  curTrack=id; onErr=null; clearInterval(fadeT);
+  if(!id){ audio.pause(); return; }
+  const u=urlOf(id); if(!u){ curTrack=null; onFail&&onFail(); return; }
+  onErr=()=>{ if(curTrack===id){ curTrack=null; onFail&&onFail(); } };
+  audio.src=u; audio.muted=muted; try{ audio.volume=0; }catch(e){}
+  const pr=audio.play();                      // dentro del toque si lo hay; si no, vale porque ya se activó
+  const fadeIn=()=>{ let v=0; fadeT=setInterval(()=>{ v=Math.min(1,v+.1); try{ audio.volume=v; }catch(e){} if(v>=1) clearInterval(fadeT); },45); };
+  if(pr) pr.then(fadeIn).catch(e=>{ if(e&&e.name==="AbortError") return; if(curTrack===id){ curTrack=null; onFail&&onFail(); } }); else fadeIn();
 }
+function isPlaying(id){ return curTrack===id&&!audio.paused&&audio.currentTime>.05; }
 /* Que suene siempre: si falla o se atasca, salta a una alternativa del mismo ánimo */
 function playSlide(s,sec){
   const i=RC.i, tries=[s.track,...(s.alts||[])].filter(Boolean); let n=0;
   const attempt=()=>{ if(!RC||RC.i!==i) return; const id=tries[n++]; if(!id){ sec.classList.add("noaudio"); return; }
     if(n>1){ const tr=Object.values(TR).find(z=>z.id===id); const np=sec.querySelector(".rc-np"); if(tr&&np) np.innerHTML=nowPlaying(tr).replace(/^<div[^>]*>|<\/div>$/g,""); }
     playTrack(id,()=>attempt());
-    clearTimeout(RC.wd); RC.wd=setTimeout(()=>{ if(!RC||RC.i!==i||curTrack!==id) return; const a=PLAYERS_A[id];
-      if(a&&!a.paused&&a.currentTime>.05) return;   // ya suena
-      if(a&&a.paused&&a._userPaused) return;
-      attempt(); },2600); };
-  if(!s.track){ playTrack(null); return; }
-  attempt();
+    clearTimeout(RC.wd); RC.wd=setTimeout(()=>{ if(!RC||RC.i!==i||curTrack!==id) return;
+      if(isPlaying(id)||audio.readyState>=3) return;      // ya suena o está a punto
+      attempt(); },3500); };
+  if(!s.track) playTrack(null); else attempt();
+  const nx=RC.data.list[i+1]; if(nx&&nx.track) preloadNext(nx.track);
 }
-function stopAudio(){ curTrack=null; Object.values(PLAYERS_A).forEach(a=>{ clearInterval(a._f); try{ a.pause(); }catch(e){} }); }
-function setMuted(v){ muted=v; Object.values(PLAYERS_A).forEach(a=>a.muted=v); }
+function stopAudio(){ curTrack=null; onErr=null; clearInterval(fadeT); try{ audio.pause(); }catch(e){} }
+function setMuted(v){ muted=v; audio.muted=v; }
 
 /* ---------- Historias ---------- */
 const fmtN=n=>Number(n).toLocaleString("es-ES");
@@ -442,7 +443,7 @@ async function openRecap(id){
   document.body.appendChild(el); document.body.classList.add("rc-on");
   RC={el,id,data,i:-1,t0:0,left:0,timer:null,paused:false};
   previews().then(pv=>{ const s=pv[data.song.id]; if(!RC||RC.id!==id) return; const art=el.querySelector(".rc-art"); if(art&&s&&s.art) art.src=s.art;
-    preloadTracks(trackIds(data)); if(RC.i>=0) go(RC.i); });
+    if(RC.i>=0&&!curTrack) go(RC.i); else preloadNext(data.list[0].track); });
   el.addEventListener("click",onClick); el.addEventListener("pointerdown",onDown); el.addEventListener("pointerup",onUp); el.addEventListener("pointercancel",onUp);
   document.addEventListener("keydown",onKey);
   try{ localStorage.setItem("am_recap_seen","1"); }catch(e){}
@@ -475,10 +476,10 @@ function onDown(e){ if(!RC||RC.i<0||e.target.closest("[data-nostep],a,button")) 
 function onUp(){ if(!RC||!RC.paused) return; RC.paused=false; RC.el.classList.remove("paused"); RC.t0=Date.now(); if(RC.left) RC.timer=setTimeout(()=>go(RC.i+1),RC.left); }
 function onClick(e){
   if(!RC) return; const t=e.target;
-  if(PREV) unlockAudio(trackIds(RC.data));   // cada toque aprovecha para desbloquear el audio que falte (iOS)
+  unlockAudio();   // cada toque asegura que el audio está activado (iPhone)
   if(t.closest("[data-rc-close]")){ closeRecap(); return; }
   if(t.closest("[data-rc-mute]")){ setMuted(!muted); t.closest("[data-rc-mute]").textContent=muted?"🔇":"🔊"; return; }
-  if(t.closest("[data-rc-go]")){ unlockAudio(trackIds(RC.data)); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
+  if(t.closest("[data-rc-go]")){ unlockAudio(); RC.el.querySelector(".rc-start").classList.add("gone"); go(0); return; }
   if(t.closest("[data-rc-share]")){ shareCard(RC.id,t.closest("[data-rc-share]")); return; }
   if(t.closest("a,[data-nostep]")){ if(t.closest(".rc-spot,a")) stopAudio(); return; }
   if(RC.i<0) return;
@@ -532,7 +533,7 @@ async function shareCard(id,btn){
 function preview(){ try{ return localStorage.getItem("am_recap_preview")==="1"; }catch(e){ return false; } }
 function available(){ return today()>=RECAP_FROM || preview(); }   // antes del 26/12 solo con el enlace #recap-preview
 if(location.hash==="#recap-preview"){ try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} }
-const ready=()=>Store.member&&Store.first&&!document.getElementById("gate");
+const ready=()=>Store.member&&(Store.first||Store.local||Object.keys(Store.matches||{}).length>0)&&!document.getElementById("gate");
 function maybeAuto(){
   if(!ready()) return false;
   const want=location.hash.startsWith("#recap");
@@ -549,7 +550,12 @@ function countOpen(){
   const inc=firebase.firestore.FieldValue.increment(1);
   Store.db.collection("stats").doc("opens").set({total:inc,[me]:inc},{merge:true}).catch(()=>{});
 }
-window.addEventListener("hashchange",()=>{ if(location.hash.startsWith("#recap")&&ready()&&available()) openRecap(); });
+window.addEventListener("hashchange",()=>{
+  if(location.hash==="#recap-preview"){ try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} }
+  if(location.hash.startsWith("#recap")&&ready()&&available()) openRecap(); });
+/* Vista previa desde la app instalada (donde no se puede escribir una URL): 7 toques seguidos en el logo */
+let taps=[]; document.addEventListener("click",e=>{ if(!e.target.closest(".logo")) return; const t=Date.now(); taps=taps.filter(x=>t-x<4000); taps.push(t);
+  if(taps.length>=7){ taps=[]; try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} if(ready()) openRecap(); else toast("Entra primero en la app"); } });
 
 /* Tarjeta en «Hoy» para volver a verlo */
 const vHoyBase=VIEWS.hoy;
@@ -564,6 +570,6 @@ VIEWS.hoy=function(){
 document.addEventListener("click",e=>{ if(e.target.closest("[data-rc-open]")) openRecap(); });
 
 window.openRecap=openRecap;
-window.recapNow=()=>{ const a=curTrack&&PLAYERS_A[curTrack]; return {track:curTrack, playing:!!(a&&!a.paused), t:a?+a.currentTime.toFixed(2):0}; };
+window.recapNow=()=>({track:curTrack, playing:!audio.paused&&!!curTrack, t:+audio.currentTime.toFixed(2)});
 window.recapSongs=()=>{ const X=idaStats(); return PLAYERS.map(p=>[p.first,SONGS[X[p.id].song].t]); };
 })();

@@ -186,3 +186,63 @@ body.rc-on{overflow:hidden}
 #recap .rc-np-eq i:nth-child(2){animation-delay:-.3s}#recap .rc-np-eq i:nth-child(3){animation-delay:-.5s}
 #recap .noaudio .rc-np{display:none}
 #recap .rc-card-song span{display:block;font:600 13px/1.35 Barlow,"Segoe UI",Arial,sans-serif;margin-top:6px;opacity:.85}
+
+/* Pantallas bajas (iPhone SE, mini, Android pequeños): centrado seguro y tamaños compactos */
+#recap .rc-s{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:64px 22px 60px}
+#recap .rc-in{margin:auto}
+@media (max-height:740px){
+  #recap .rc-big{font-size:clamp(40px,11.5vw,64px);margin-bottom:12px}
+  #recap .rc-k-liga .rc-big{font-size:clamp(38px,11vw,60px)}
+  #recap .rc-h{font-size:clamp(32px,9vw,46px);margin-bottom:14px}
+  #recap .rc-lead{font-size:15.5px;margin-top:12px}
+  #recap .rc-quip{font-size:14.5px;margin-top:10px;padding:9px 11px}
+  #recap .rc-num{font-size:clamp(96px,30vw,150px)}
+  #recap .rc-row{gap:16px;margin-top:14px}
+  #recap .rc-row b{font-size:46px}
+  #recap .rc-grid{gap:14px}
+  #recap .rc-grid b{font-size:58px}
+  #recap .rc-grid3 b{font-size:clamp(40px,11vw,54px)}
+  #recap .rc-face{width:84px;height:84px}
+  #recap .rc-face.xl{width:min(44vw,170px);height:min(44vw,170px)}
+  #recap .rc-face.sm{width:38px;height:38px}
+  #recap .rc-riv{padding:12px}
+  #recap .rc-riv b{font-size:26px}
+  #recap .rc-riv span{font-size:36px}
+  #recap .rc-score{font-size:clamp(44px,13vw,70px);margin-top:12px}
+  #recap .rc-awards{margin-top:12px;gap:7px}
+  #recap .rc-awards li{padding:7px 10px}
+  #recap .rc-awards b{font-size:19px}
+  #recap .rc-vinyl{width:min(48vw,190px)}
+  #recap .rc-disc{margin-bottom:14px}
+  #recap h2.rc-song{font-size:clamp(34px,10vw,54px)}
+  #recap .rc-spot{margin-top:14px;padding:10px 18px}
+  #recap div.rc-card{padding:16px}
+  #recap .rc-card-top .rc-face{width:56px;height:56px}
+  #recap .rc-card-top b{font-size:26px}
+  #recap .rc-card-grid{margin:12px 0;gap:8px}
+  #recap .rc-card-grid>div{padding:8px 11px}
+  #recap .rc-card-grid b{font-size:34px}
+  #recap .rc-actions{margin-top:14px}
+  #recap .rc-np{bottom:calc(10px + env(safe-area-inset-bottom))}
+}
+@media (max-height:600px){
+  #recap .rc-s{padding:56px 18px 48px}
+  #recap .rc-big{font-size:clamp(34px,10.5vw,50px)}
+  #recap .rc-h{font-size:clamp(28px,8.5vw,38px)}
+  #recap .rc-lead{font-size:14.5px}
+  #recap .rc-num{font-size:clamp(80px,26vw,120px)}
+  #recap .rc-row b{font-size:40px}
+  #recap .rc-grid b,#recap .rc-grid3 b{font-size:42px}
+  #recap .rc-face.xl{width:min(36vw,130px);height:min(36vw,130px)}
+  #recap .rc-vinyl{width:min(40vw,150px)}
+  #recap .rc-card-song span{font-size:12px}
+}
+#recap .rc-row{flex-wrap:nowrap}
+#recap .rc-row>div{flex:1 1 0;min-width:0}
+@media (max-width:360px){
+  #recap .rc-row{gap:12px}
+  #recap .rc-row small,#recap .rc-grid small{font-size:11.5px}
+  #recap .rc-card-top b{font-size:22px}
+  #recap .rc-actions .btn{font-size:15px;padding:11px 10px}
+  #recap .rc-x,#recap .rc-mute{width:36px;height:36px;line-height:36px}
+}
