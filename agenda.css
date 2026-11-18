@@ -126,3 +126,7 @@ body.agw-on{overflow:hidden}
 @media (prefers-reduced-motion:reduce){ .agp-box,.agp-img img,.agp-stamp{animation:none} }
 .agp-img{aspect-ratio:auto;height:min(40vh,300px)}
 .agp-body h2{font-size:clamp(30px,8.4vw,44px);overflow-wrap:anywhere}
+/* Destello del neuralizador */
+.agp-flash{position:fixed;inset:0;z-index:9600;pointer-events:none;background:#fff;animation:agpFlash 1.1s ease-out forwards}
+@keyframes agpFlash{0%{opacity:0}8%{opacity:1}30%{opacity:.95}100%{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){ .agp-flash{display:none} }
