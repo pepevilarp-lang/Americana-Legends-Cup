@@ -2,12 +2,14 @@
    Como mucho UN aviso por persona y día:
      · Hoy juegas            → los dos jugadores, con sonido
      · Mañana juegas         → los dos jugadores, con sonido
-     · Quedan 2 días de jornada y no tenéis fecha → los dos jugadores, con sonido
+     · Tu rival te ha propuesto fecha y no has contestado → con sonido
+     · Arranca la jornada / quedan 2 días / partido aplazado (lunes) sin fecha → con el hueco que os va bien a los dos (agenda inteligente)
      · Hoy en la liga        → el resto, sin sonido (solo si hay partidos ese día)
    Necesita en Vercel: FIREBASE_SERVICE_ACCOUNT (el JSON de la cuenta de servicio) y CRON_SECRET. */
 const crypto = require("crypto");
 const webpush = require("web-push");
 const { JORNADAS, NAMES, FIXTURE, RECAP_FROM } = require("./_liga");
+const AC = require("../agenda-core.js");
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "americana-legends-cup";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
@@ -19,8 +21,9 @@ const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"], MES = ["ene", 
 const fmtDay = s => { const [y, m, d] = s.split("-").map(Number); return `${DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MES[m - 1]}`; };
 const detail = m => `${m.time ? " a las " + m.time : ""}${m.court ? " · " + m.court : ""}`;
 
-/* Lógica pura (se puede probar sin red): partidos guardados + fecha de hoy → un aviso por jugador */
-function buildPlan(saved, today) {
+/* Lógica pura (se puede probar sin red): partidos guardados + agendas + fecha de hoy → un aviso por jugador */
+function buildPlan(saved, today, ag = {}) {
+  const avail = ag.avail || {}, plans = ag.plans || {};
   const tomorrow = addDays(today, 1);
   const all = FIXTURE.map(f => ({ ...f, ...(saved[f.id] || {}) }))
     .concat(Object.entries(saved).filter(([id]) => !FIXTURE.some(f => f.id === id)).map(([id, m]) => ({ id, ...m })))   // playoffs
@@ -29,6 +32,17 @@ function buildPlan(saved, today) {
   const plan = {};
   const add = (pid, p) => { if (!plan[pid]) plan[pid] = p; };
   const rival = (m, pid) => (m.a === pid ? m.b : m.a);
+  // Agenda: el mejor hueco común de un partido (o null)
+  const busy = {}; all.forEach(m => { if (m.date) [m.a, m.b].forEach(p => (busy[p] = busy[p] || []).push(m.date)); });
+  const prefTime = AC.prefTimes(all.filter(m => m.time), null, null);
+  const bestSlot = m => { const f = FIXTURE.find(x => x.id === m.id); if (!f) return null;
+    const [ws, we] = JORNADAS[f.j - 1];
+    const r = AC.suggest({ a: m.a, b: m.b, avA: avail[m.a], avB: avail[m.b], today, nowHour: 8, winStart: ws, winEnd: we, busy, prefTime, max: 1 });
+    return r.slots[0] || null; };
+  const nudge = (m, pid, title, fallback) => { const s = bestSlot(m);
+    if (s) return { title, body: `Con ${nm(rival(m, pid))}: os va bien a los dos el ${AC.label(s)}. Toca para cerrarlo.`, tag: `daily-${today}`, url: `./#agenda-${m.id}` };
+    if (!AC.filled(avail[pid])) return { title, body: `${fallback} Rellena tu agenda (3 preguntas, 30 s) y la app os busca hueco.`, tag: `daily-${today}`, url: "./#agenda" };
+    return { title, body: `${fallback} Mirad la agenda: ahí veis qué días os encajan.`, tag: `daily-${today}`, url: `./#agenda-${m.id}` }; };
   // 1) hoy y mañana
   for (const [day, word] of [[today, "Hoy"], [tomorrow, "Mañana"]]) {
     all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid =>
@@ -40,12 +54,24 @@ function buildPlan(saved, today) {
       body: `${nm(pid)}, gracias por hacer historia en la primera temporada de la Legends Cup. Tu resumen de la ida te espera, con canción incluida.`,
       tag: "recap-ida", url: "./#recap" }));
   }
-  // 2) jornada a punto de cerrar sin fecha
+  const noDate = all.filter(m => open(m) && !m.date && m.j);
+  // 1c) Tu rival te ha propuesto fecha y no has contestado
+  noDate.forEach(m => [m.a, m.b].forEach(pid => {
+    const p = plans[m.id] && plans[m.id].picks || {}, mine = (p[pid] || []).filter(k => k >= today), his = (p[rival(m, pid)] || []).filter(k => k >= today);
+    if (his.length && !mine.length) add(pid, { title: `📅 ${nm(rival(m, pid))} te ha propuesto fecha`, body: `${his.slice().sort().slice(0, 2).map(k => AC.label(k)).join(" o ")}. ¿Te va bien? Toca para responder.`, tag: `daily-${today}`, url: `./#agenda-${m.id}` });
+  }));
+  // 2) arranca la jornada / quedan 2 días, sin fecha
   const j = JORNADAS.findIndex(([a, b]) => today >= a && today <= b) + 1;
-  if (j && diffDays(today, JORNADAS[j - 1][1]) === 2) {
-    all.filter(m => m.j === j && open(m) && !m.date).forEach(m => [m.a, m.b].forEach(pid =>
-      add(pid, { title: `⏳ Quedan 2 días de la Jornada ${j}`, body: `Aún no tenéis fecha para ${nm(m.a)}–${nm(m.b)}. Escribe a ${nm(rival(m, pid))} y fijadla.`, tag: `daily-${today}` })));
+  if (j) {
+    const [ws, we] = JORNADAS[j - 1], left = diffDays(today, we);
+    noDate.filter(m => m.j === j).forEach(m => [m.a, m.b].forEach(pid => {
+      if (today === ws) add(pid, nudge(m, pid, `🗓️ Arranca la Jornada ${j}`, `Te toca contra ${nm(rival(m, pid))}.`));
+      else if (left === 2) add(pid, nudge(m, pid, `⏳ Quedan 2 días de la Jornada ${j}`, `Aún no tenéis fecha para ${nm(m.a)}–${nm(m.b)}.`));
+    }));
   }
+  // 2b) los lunes, partidos aplazados sin fecha
+  if (AC.dow(today) === 1) noDate.filter(m => { const f = FIXTURE.find(x => x.id === m.id); return f && JORNADAS[f.j - 1][1] < today; })
+    .forEach(m => [m.a, m.b].forEach(pid => add(pid, nudge(m, pid, "⚠️ Tenéis un partido aplazado", `${nm(m.a)}–${nm(m.b)} (J${m.j}) sigue sin jugarse.`))));
   // 3) resto: resumen del día, sin sonido
   const todays = all.filter(m => open(m) && m.date === today).sort((x, y) => (x.time || "99").localeCompare(y.time || "99"));
   if (todays.length) {
@@ -75,6 +101,19 @@ async function list(col, tok) {
   return out;
 }
 const str = (f, k) => (f && f[k] && f[k].stringValue) || "";
+/* Valor de Firestore (formato REST) → valor normal */
+function fsVal(v) {
+  if (!v) return null;
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return Number(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("nullValue" in v) return null;
+  if ("timestampValue" in v) return v.timestampValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(fsVal);
+  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fsVal(x)]));
+  return null;
+}
 
 module.exports = async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -86,13 +125,14 @@ module.exports = async (req, res) => {
   try {
     const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     const tok = await accessToken(sa);
-    const [mDocs, pDocs] = await Promise.all([list("matches", tok), list("push", tok)]);
+    const [mDocs, pDocs, aDocs, plDocs] = await Promise.all([list("matches", tok), list("push", tok), list("avail", tok).catch(() => []), list("plans", tok).catch(() => [])]);
+    const toObj = docs => Object.fromEntries(docs.map(d => [d.name.split("/").pop(), fsVal({ mapValue: { fields: d.fields || {} } })]));
     const saved = {};
     mDocs.forEach(d => { const id = d.name.split("/").pop(), f = d.fields || {};
       const parts = id.split("-"); const a = str(f, "a") || parts[1], b = str(f, "b") || parts.slice(2).join("-");
       saved[id] = { status: str(f, "status"), date: str(f, "date"), time: str(f, "time"), court: str(f, "court"), a, b }; });
     const today = (req.query && req.query.date) || ymdMadrid();
-    const plan = buildPlan(saved, today);
+    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs) });
     if (req.query && req.query.dry) return res.status(200).json({ today, plan });
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:liga@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     let sent = 0, failed = 0;
@@ -106,3 +146,4 @@ module.exports = async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 };
 module.exports.buildPlan = buildPlan;
+module.exports.fsVal = fsVal;
