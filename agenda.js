@@ -259,6 +259,30 @@ document.addEventListener("click",async e=>{
   const ask=t.closest("[data-ag-ask]"); if(ask){ askRival(ask.dataset.agAsk); return; }
 });
 
+/* ---------- Ventana de bienvenida: «Seniors, Juniors, vayamos a solucionar…» ----------
+   Sale a quien aún no ha rellenado su agenda: como mucho una vez al día y 3 veces en total. */
+function maybePopup(){
+  const me=myId(); if(!me||!Agenda.ready||Agenda.blocked||filled(me)) return false;
+  if(document.getElementById("gate")||document.getElementById("recap")||document.getElementById("agw")||document.getElementById("agp")||document.body.classList.contains("mo")) return false;
+  let n=0, last=""; try{ n=+localStorage.getItem("am_agpop_n")||0; last=localStorage.getItem("am_agpop_d")||""; }catch(e){}
+  if(n>=3||last===today()) return true;
+  try{ localStorage.setItem("am_agpop_n",n+1); localStorage.setItem("am_agpop_d",today()); }catch(e){}
+  const el=document.createElement("div"); el.id="agp"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Agenda inteligente");
+  el.innerHTML=`<div class="agp-box"><button class="agw-x" data-agp-close aria-label="Cerrar">×</button>
+    <div class="agp-img"><img src="img/agenda-pop.webp" alt=""><span class="agp-stamp">NUEVO</span></div>
+    <div class="agp-body"><small>Seniors, Juniors:</small><h2>Vayamos a solucionar los aplazamientos</h2>
+    <p>Contesta <b>3 preguntas</b> (30 segundos) y la app cruza tu agenda con la de tu rival, os propone los huecos que os van bien a los dos y, cuando coincidís, <b>el partido se cierra solo</b>.</p>
+    <button class="btn ball agp-go" data-agp-go>🗓️ Montar mi agenda</button><button class="agp-later" data-agp-close>Luego</button></div></div>`;
+  document.body.appendChild(el); document.body.classList.add("agw-on");
+  return true;
+}
+const popIv=setInterval(()=>{ if(maybePopup()) clearInterval(popIv); },1500);
+document.addEventListener("click",e=>{
+  const p=document.getElementById("agp"); if(!p) return;
+  if(e.target.closest("[data-agp-go]")){ p.remove(); document.body.classList.remove("agw-on"); openWizard(); }
+  else if(e.target.closest("[data-agp-close]")||e.target===p){ p.remove(); document.body.classList.remove("agw-on"); }
+});
+
 /* Enlaces de los avisos: #agenda (asistente) y #agenda-<partido> (ficha del partido) */
 function route(){
   const h=location.hash; if(!h.startsWith("#agenda")) return;
