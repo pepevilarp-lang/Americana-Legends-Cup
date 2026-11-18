@@ -3,15 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ==========================================================
-    //  CÓDIGO DE LA LIGA
-    //  No está en el código: vive en Firestore, documento config/acceso,
-    //  campo «pin» (texto). Nadie lo puede leer desde la app (ver match /config).
-    //  Para cambiarlo: edita ese campo en la consola de Firebase. Todos los
-    //  móviles tendrán que volver a meterlo una vez (el acceso antiguo caduca solo).
+    //  ACCESO: SIN CÓDIGO
+    //  Entra quien ha iniciado sesión con Google y tiene su cara ligada (players/<uid>).
+    //  Las 10 caras están reservadas, cada una con el correo de su jugador: nadie más
+    //  puede conseguir una (claims solo se crea si está libre y solo se recupera con el
+    //  mismo correo verificado).
     // ==========================================================
-    function pinActual() {
-      return get(/databases/$(database)/documents/config/acceso).data.pin;
-    }
 
     // Sesión iniciada con Google
     function signedIn() {
@@ -23,11 +20,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/players/$(request.auth.uid)).data.player;
     }
 
-    // Esta cuenta ha metido el código VIGENTE (si se cambia el código, deja de ser miembro)
+    // Jugador de la liga: sesión de Google + cara ligada a esta cuenta
     function isMember() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/editors/$(request.auth.uid))
-        && get(/databases/$(database)/documents/editors/$(request.auth.uid)).data.get('pin', '') == pinActual();
+      return signedIn() && exists(/databases/$(database)/documents/players/$(request.auth.uid));
     }
 
     // Organizador: su uid se añade a mano en la consola (desde la web no se puede)
@@ -74,15 +69,9 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Código correcto por cuenta. Hace falta haber elegido cara antes.
+    // Antiguo registro del código de acceso: ya no se usa
     match /editors/{uid} {
-      allow read, delete: if false;
-      allow create, update: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['pin'])
-        && request.resource.data.pin is string
-        && request.resource.data.pin.size() <= 40
-        && exists(/databases/$(database)/documents/players/$(request.auth.uid))
-        && request.resource.data.pin == pinActual();
+      allow read, write: if false;
     }
 
     // Partidos: se pueden ver y tocar con el PIN
