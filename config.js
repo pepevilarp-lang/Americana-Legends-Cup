@@ -26,6 +26,8 @@ window.LIGA_CONFIG = {
   RECAP_FROM: "2026-12-26",
   // Entradas a la app según Vercel Analytics (se rellena automáticamente el 26/12). 0 = usar solo el contador propio.
   APP_OPENS: 0,
+  // Únicas cuentas que pueden ver el recap antes de RECAP_FROM (enlace #recap-preview o 7 toques en el logo)
+  RECAP_TESTERS: ["pepe"],
 
   // Cruces oficiales de la ida (J1–J9), en el mismo orden que la web original.
   // La vuelta (J10–J18) repite cada jornada con los cruces invertidos.
