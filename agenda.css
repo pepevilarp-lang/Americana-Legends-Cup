@@ -142,3 +142,17 @@ body.agw-on{overflow:hidden}
 .agp-body{margin-top:-18px}
 .agp-body h2{font-size:min(8.2vw,44px);overflow-wrap:normal}
 @media (max-height:700px){ .agp-img{height:min(40vh,400px)} .agp-body p{font-size:14px;margin-bottom:12px} .agp-go{padding:12px} }
+/* Texto de la ventana: «Seniors, Juniors» + los 3 pasos */
+.agp-body h2{font-size:min(13vw,60px);line-height:.88}
+.agp-body .agp-lead{font-size:17px;color:#fff;margin:0 0 14px}
+.agp-body .agp-lead b{color:var(--ball)}
+.agp-steps{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:9px}
+.agp-steps li{display:flex;gap:11px;align-items:flex-start}
+.agp-steps span{flex:0 0 28px;height:28px;border-radius:50%;background:var(--ball);color:var(--deep);font:italic 900 18px/28px var(--display);text-align:center}
+.agp-steps p{margin:0;font-size:14.5px;line-height:1.38;color:var(--ice)}
+.agp-steps b{color:#fff}
+.agp-body .agp-more{font-size:13.5px;margin:0 0 16px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.07);color:var(--ice)}
+.agp-more i{color:#fff}
+@media (max-height:700px){ .agp-img{height:min(32vh,300px)} .agp-steps p{font-size:13.5px} .agp-body .agp-lead{font-size:15.5px} }
+/* El botón siempre a la vista mientras se lee */
+.agp-go{position:sticky;bottom:10px;z-index:2;box-shadow:0 -14px 24px 6px var(--deep),0 8px 20px rgba(0,0,0,.35)}
