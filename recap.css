@@ -246,3 +246,114 @@ body.rc-on{overflow:hidden}
   #recap .rc-actions .btn{font-size:15px;padding:11px 10px}
   #recap .rc-x,#recap .rc-mute{width:36px;height:36px;line-height:36px}
 }
+
+/* ====================================================================
+   v4 · Más espectáculo: transiciones, titulares palabra a palabra,
+   rótulos gigantes, formas, grano y barra de canción con su porqué.
+   Los tamaños usan min(vw, vh): se adaptan solos a cualquier pantalla.
+   ==================================================================== */
+#recap::after{content:"";position:absolute;inset:0;z-index:7;pointer-events:none;opacity:.13;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#recap .rc-s{transition:none;z-index:1;padding:68px 22px 118px}
+#recap .rc-s.on{z-index:3;visibility:visible;opacity:1;animation:rcInCircle .8s cubic-bezier(.75,0,.2,1) both}
+#recap .rc-s.out{z-index:2;visibility:visible;opacity:1;animation:rcOut .8s cubic-bezier(.75,0,.2,1) forwards}
+#recap .rc-s.fx-wipe.on{animation-name:rcInWipe}
+#recap .rc-s.fx-zoom.on{animation-name:rcInZoom}
+#recap .rc-s.fx-diag.on{animation-name:rcInDiag}
+#recap .rc-s.fx-slide.on{animation-name:rcInSlide}
+#recap.back .rc-s.on{animation-name:rcInBack}
+@keyframes rcInCircle{from{clip-path:circle(0% at var(--tx,80%) var(--ty,50%))}to{clip-path:circle(150% at var(--tx,80%) var(--ty,50%))}}
+@keyframes rcInWipe{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes rcInZoom{from{opacity:0;transform:scale(1.35) rotate(3deg)}to{opacity:1;transform:none}}
+@keyframes rcInDiag{from{clip-path:polygon(0 0,0 0,0 0,0 0)}to{clip-path:polygon(0 0,220% 0,0 220%,0 0)}}
+@keyframes rcInSlide{from{transform:translateX(100%)}to{transform:none}}
+@keyframes rcInBack{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes rcOut{to{transform:scale(.86) rotate(-3deg);filter:brightness(.45);opacity:.4}}
+
+/* Titulares: cada palabra entra con giro y desenfoque */
+#recap .rc-s.on .rc-in>.rc-big,#recap .rc-s.on .rc-in>.rc-h,#recap .rc-s.on .rc-in>h2.rc-song{animation:none;opacity:1;transform:none}
+#recap .w{display:inline-block;opacity:0}
+#recap .rc-s.on .w{animation:rcWord .75s cubic-bezier(.2,.9,.25,1.15) both;animation-delay:calc(.35s + var(--i)*75ms)}
+@keyframes rcWord{from{opacity:0;transform:translateY(70%) rotate(9deg) scale(.75);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+#recap .rc-s.on [data-count]{display:inline-block;animation:rcPop .9s .45s cubic-bezier(.2,1.5,.3,1) both}
+@keyframes rcPop{from{opacity:0;transform:scale(.25) rotate(-8deg)}to{opacity:1;transform:none}}
+
+/* Tipografía grande y adaptable */
+#recap .rc-big{font-size:min(17vw,10.5vh,124px);line-height:.84;letter-spacing:-.015em;margin-bottom:16px}
+#recap .rc-k-liga .rc-big,#recap .rc-k-thanks .rc-big{font-size:min(15.5vw,9.2vh,112px)}
+#recap .rc-h{font-size:min(14vw,8.4vh,98px);line-height:.86;margin-bottom:18px}
+#recap .rc-tease .rc-big,#recap .rc-k-tease .rc-big{font-size:min(15vw,9.5vh,110px)}
+#recap .rc-kick{font-size:min(3.6vw,2vh,15px);letter-spacing:.2em}
+#recap .rc-lead{font:700 min(5.1vw,2.65vh,21px)/1.32 Barlow,"Segoe UI",Arial,sans-serif;margin-top:min(3vh,18px)}
+#recap .rc-lead b{background:var(--lime);color:#06173F;padding:0 .22em;border-radius:5px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+#recap .rc-k-card .rc-lead b{background:#06173F;color:var(--lime)}
+#recap .rc-num{font-size:min(46vw,26vh,260px);line-height:.8}
+#recap .rc-num small{font-size:min(5vw,2.6vh,22px)}
+#recap .rc-row b{font-size:min(15vw,8vh,74px)}
+#recap .rc-grid b{font-size:min(22vw,11vh,104px)}
+#recap .rc-grid3 b{font-size:min(14vw,7.6vh,74px)}
+#recap .rc-row small,#recap .rc-grid small{font-size:min(3.4vw,1.8vh,14px)}
+#recap .rc-quip{font-size:min(4.4vw,2.3vh,18px);padding:min(2vh,13px) 14px;transform:rotate(-1.2deg);background:#06173F;color:#fff;border-left:0;box-shadow:6px 6px 0 var(--lime)}
+#recap h2.rc-song{font-size:min(15vw,8.5vh,96px);line-height:.86}
+#recap .rc-score{font-size:min(17vw,9vh,104px)}
+#recap .rc-face.xl{width:min(50vw,26vh,240px);height:min(50vw,26vh,240px)}
+#recap .rc-vinyl{width:min(62vw,30vh,280px)}
+#recap .rc-riv b{font-size:min(8vw,4.2vh,36px)}
+#recap .rc-riv span{font-size:min(12vw,6vh,52px)}
+
+/* Rótulo gigante que cruza el fondo */
+#recap .rc-tick{position:absolute;left:0;top:14%;z-index:1;display:flex;width:max-content;pointer-events:none;transform:rotate(-8deg) translateX(-10%);
+  font:italic 900 min(30vw,17vh,190px)/1 "Big Shoulders Display",Impact,sans-serif;white-space:nowrap;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.2)}
+#recap .rc-s:nth-child(even) .rc-tick{top:auto;bottom:16%;transform:rotate(6deg) translateX(-10%)}
+#recap .rc-s.on .rc-tick{animation:rcMarq 22s linear infinite}
+#recap .rc-s:nth-child(even).on .rc-tick{animation-direction:reverse}
+#recap .rc-k-card .rc-tick{-webkit-text-stroke-color:rgba(6,23,63,.14)}
+@keyframes rcMarq{to{translate:-50% 0}}
+
+/* Formas que giran */
+#recap .rc-shape{position:absolute;z-index:1;pointer-events:none}
+#recap .rc-shape.s1{width:min(70vw,38vh);height:min(70vw,38vh);border-radius:50%;border:3px dashed rgba(255,255,255,.28);right:-18%;top:-8%}
+#recap .rc-shape.s2{width:min(26vw,14vh);height:min(26vw,14vh);left:6%;bottom:22%;background:var(--lime);opacity:.9;
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+#recap .rc-s:nth-child(3n) .rc-shape.s2{border-radius:50%;clip-path:none;background:#fff;opacity:.85;width:min(14vw,8vh);height:min(14vw,8vh)}
+#recap .rc-s:nth-child(3n+1) .rc-shape.s2{clip-path:polygon(0 0,100% 50%,0 100%);background:#06173F;opacity:.5}
+#recap .rc-s.on .rc-shape.s1{animation:rcSpin 24s linear infinite}
+#recap .rc-s.on .rc-shape.s2{animation:rcBob 3.2s ease-in-out infinite alternate,rcSpin 14s linear infinite}
+@keyframes rcBob{to{translate:0 -18px}}
+#recap .rc-k-card .rc-shape,#recap .rc-k-tease .rc-shape,#recap .rc-k-song .rc-shape.s2{display:none}
+#recap .rc-k-tease .rc-tick{-webkit-text-stroke-color:rgba(227,255,59,.22)}
+
+/* Barra «sonando ahora» con carátula y el porqué de la canción */
+#recap .rc-np{left:12px;right:12px;transform:none;bottom:calc(14px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;
+  display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:18px;white-space:normal;overflow:visible;
+  background:rgba(0,0,0,.42);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:left}
+#recap .rc-s.on .rc-in>.rc-np{animation:rcNp .7s 1s cubic-bezier(.2,1.2,.3,1) both}
+@keyframes rcNp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+#recap .rc-np-art{width:min(13vw,7vh,52px);height:min(13vw,7vh,52px);border-radius:10px;object-fit:cover;flex:0 0 auto;background:rgba(255,255,255,.15)}
+#recap .rc-np-art:not([src]){visibility:hidden}
+#recap .rc-np-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+#recap .rc-np-t{display:flex;align-items:center;gap:7px;font:800 min(3.1vw,1.6vh,12px) Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#recap .rc-np em{font:italic 700 min(4vw,2.1vh,16px)/1.25 Barlow,"Segoe UI",Arial,sans-serif;color:#fff}
+#recap .noaudio .rc-np{display:flex;opacity:.7}
+
+/* Escúchala entera, tengas la app que tengas */
+#recap .rc-listen{margin-top:min(2.4vh,18px);display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+#recap .rc-listen small{width:100%;font:700 11px Barlow,"Segoe UI",Arial,sans-serif;text-transform:uppercase;letter-spacing:.14em;opacity:.8}
+#recap .rc-l{padding:9px 14px;border-radius:999px;font:800 14px Barlow,"Segoe UI",Arial,sans-serif;text-decoration:none;color:#fff}
+#recap .rc-l.sp{background:#1DB954;color:#000}#recap .rc-l.am{background:#FA2D48}#recap .rc-l.yt{background:#FF0000}
+
+/* Pantalla de inicio más potente */
+#recap .rc-start .rc-big{font-size:min(16vw,10vh,116px)}
+#recap .rc-start .btn{font-size:20px;padding:18px 32px;border-radius:999px;box-shadow:0 0 0 0 rgba(227,255,59,.7);animation:rcCall 1.6s ease-out infinite}
+@keyframes rcCall{70%{box-shadow:0 0 0 22px rgba(227,255,59,0)}100%{box-shadow:0 0 0 0 rgba(227,255,59,0)}}
+
+@media (prefers-reduced-motion:reduce){ #recap .w,#recap [data-count]{opacity:1!important;transform:none!important;filter:none!important} #recap .rc-s.on,#recap .rc-s.out{animation:none!important} #recap .rc-s.out{visibility:hidden} }
+/* Ajustes v4.1: formas en los bordes, titulares que no se salen, acciones de la tarjeta */
+#recap .rc-big,#recap .rc-h,#recap h2.rc-song{max-width:100%}
+#recap .rc-shape.s2{left:auto;right:-5vw;bottom:auto;top:52%;opacity:.55}
+#recap .rc-s:nth-child(3n) .rc-shape.s2{background:transparent;border:4px solid var(--lime);opacity:.6}
+#recap .rc-s:nth-child(3n+1) .rc-shape.s2{right:auto;left:-6vw;top:62%;opacity:.35}
+#recap .rc-k-tease .rc-big{font-size:min(13vw,9vh,104px)}
+#recap .rc-k-card .rc-actions .btn{flex:1;font-size:18px;padding:15px}
+#recap .rc-k-card .rc-listen{margin-top:12px}
+@media (max-height:600px){ #recap .rc-np em{display:none} #recap .rc-s{padding-bottom:78px} #recap .rc-np-art{width:34px;height:34px} }
