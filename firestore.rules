@@ -49,19 +49,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Cada cara es de una sola cuenta: create() falla si ya está reservada
+    // Cada cara es de un CORREO. Mismo correo en otro dispositivo o con cuenta nueva = misma cara.
     match /claims/{pid} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      // Recuperar tu cara: solo si el correo guardado es el tuyo (verificado por Google)
+      allow update: if signedIn()
+        && request.auth.token.email_verified == true
+        && resource.data.email == request.auth.token.email
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // La cuenta solo puede ligarse a la cara que acaba de reservar
+    // getAfter: ve la reserva aunque se escriba en la misma operación (reserva y ligado van juntos)
     match /players/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if signedIn() && request.auth.uid == uid
-        && get(/databases/$(database)/documents/claims/$(request.resource.data.player)).data.uid == uid;
-      allow update, delete: if false;
+        && getAfter(/databases/$(database)/documents/claims/$(request.resource.data.player)).data.uid == uid;
+      allow delete: if isAdmin();
+      allow update: if false;
     }
 
     // Código correcto por cuenta. Hace falta haber elegido cara antes.
@@ -148,6 +158,23 @@ service cloud.firestore {
         && request.resource.data.total == resource.data.total + 1
         && request.resource.data.get(myPlayer(), 0) == resource.data.get(myPlayer(), 0) + 1;
       allow delete: if false;
+    }
+
+    // ANÁLISIS DE RIVAL: solo cifras agregadas por jugador. Cada respuesta suma UNA vez,
+    // y solo en la misma operación en que esa encuesta pasa de pendiente a respondida.
+    match /survey_stats/{pid} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+      allow create: if isMember() && pid == myPlayer()
+        && request.resource.data.n == 1
+        && get(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.playerId == pid
+        && get(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.status == 'pending'
+        && getAfter(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.status == 'completed';
+      allow update: if isMember() && pid == myPlayer()
+        && request.resource.data.n == resource.data.n + 1
+        && get(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.playerId == pid
+        && get(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.status == 'pending'
+        && getAfter(/databases/$(database)/documents/surveys/$(request.resource.data.last)).data.status == 'completed';
     }
 
     // ENCUESTAS: privadas. Solo las lee su jugador y el organizador (en agregado).
