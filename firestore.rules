@@ -111,6 +111,32 @@ service cloud.firestore {
       allow create, update: if signedIn() && request.resource.data.who == myPlayer();
     }
 
+    // AGENDA INTELIGENTE
+    // Disponibilidad: la lee cualquier miembro; cada uno solo escribe la suya
+    match /avail/{pid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && myPlayer() == pid
+        && request.resource.data.keys().hasOnly(['days', 'wk', 'we', 'marks', 'at'])
+        && request.resource.data.days is list && request.resource.data.days.size() <= 7
+        && request.resource.data.wk is list && request.resource.data.wk.size() <= 4
+        && request.resource.data.we is list && request.resource.data.we.size() <= 4
+        && request.resource.data.marks is map && request.resource.data.marks.size() <= 120;
+      allow delete: if false;
+    }
+    // Propuestas de fecha de un partido (id «J6-pepe-joan»): solo los dos jugadores, y cada uno solo su lista
+    match /plans/{mid} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && mid.split('-').size() == 3
+        && (myPlayer() == mid.split('-')[1] || myPlayer() == mid.split('-')[2])
+        && request.resource.data.keys().hasOnly(['picks', 'at'])
+        && request.resource.data.picks is map
+        && request.resource.data.picks.keys().hasOnly([mid.split('-')[1], mid.split('-')[2]])
+        && (resource == null || request.resource.data.picks.diff(resource.data.get('picks', {})).affectedKeys().hasOnly([myPlayer()]))
+        && request.resource.data.picks.get(myPlayer(), []).size() <= 12;
+      allow delete: if false;
+    }
+
     // Contador de entradas a la app (para el resumen de la ida): solo sumar 1 al total y a tu jugador
     match /stats/{doc} {
       allow read: if isMember();
