@@ -365,10 +365,11 @@ function slides(id){
   const X=idaStats(), x=X[id], R=x.R, p=P[id], S2=SONGS[x.song], L=leagueStats();
   const pct=Math.round(100*PLAYERS.filter(q=>X[q.id].R.jf<R.jf).length/(PLAYERS.length-1));
   const nm=i=>esc(P[i].first);
-  const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);   // el artista de tu canción no suena antes
+  const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);
+  const DUR=1.8;   // más tiempo para leer; tocar a la derecha pasa a la siguiente   // el artista de tu canción no suena antes
   const add=(k,d,h,track)=>{ let tr=null, key=null;
     if(track===undefined){ key=pickTrack(k,x,L,used,usedArt); tr=key&&TR[key]; }
-    out.push({k,d,h:h+(tr?nowPlaying(tr,hookFor(key,k,x,L)):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
+    out.push({k,d:d?Math.round(d*(k==="song"?1:k==="tease"?1.2:DUR)):0,h:h+(tr?nowPlaying(tr,hookFor(key,k,x,L)):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
   /* 1-3 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
@@ -419,7 +420,7 @@ function slides(id){
   add("crowd",7500,`<h2 class="rc-h">La grada</h2><div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>
     ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:`<p class="rc-lead">Ni un pronóstico. En la vuelta, mójate.</p>`}${quip("crowd",x,L)}`);
   add("tease",3800,`<h2 class="rc-big rc-tease">Toda temporada<br>tiene banda sonora.</h2><p class="rc-lead">Sube el volumen 🔊</p>`,null);
-  add("song",16000,`<div class="rc-kick">Tu ida en una canción</div>
+  add("song",29000,`<div class="rc-kick">Tu ida en una canción</div>
     <div class="rc-disc"><div class="rc-vinyl"><img class="rc-art" alt=""><span class="rc-lbl" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></span></div></div>
     <h2 class="rc-song">${esc(S2.t)}</h2><div class="rc-artist">${esc(S2.a)}</div>
     <div class="rc-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
@@ -436,7 +437,7 @@ function slides(id){
     <div class="rc-listen" data-nostep>${listenLinks(S2)}</div>`,S2.id);
   add("thanks",0,`<div class="rc-kick">Gracias</div>
     <h2 class="rc-big">Gracias por hacer historia.</h2>
-    <p class="rc-lead">Esta es la primera temporada de la Americana Legends Cup y existe porque ${PLAYERS.length} amigos decidieron tomársela en serio. Gracias por cada partido, cada voto, cada aplazamiento y cada pique en el grupo.</p>
+    <p class="rc-lead">Esta es la primera temporada de la Americana Legends Cup y existe porque ${PLAYERS.length} amigos decidieron tomársela en serio. Gracias por cada partido, cada voto, cada aplazamiento y cada birra post partido.</p>
     <p class="rc-lead">La vuelta arranca el <b>1 de febrero</b>. Id calentando.</p>
     <button class="btn ghost" data-rc-close data-nostep>Volver a la app</button>`);
   return {list:out, x, song:S2};
