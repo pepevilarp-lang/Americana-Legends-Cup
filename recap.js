@@ -474,6 +474,7 @@ const FX=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];
 async function openRecap(id){
   /* Cada uno solo ve el suyo (en modo prueba local se puede pedir otro para revisar) */
   id=(Store.local&&id)||Store.myPlayer||S.me; if(!P[id]) return;
+  if(!available()&&!Store.local) return;   // antes del 26/12 solo los testers
   if(!Store.recapOpens) await loadOpens();
   closeRecap(true);
   const data=slides(id);
@@ -578,7 +579,9 @@ async function shareCard(id,btn){
 }
 
 /* ---------- Cuándo se enseña ---------- */
-function preview(){ try{ return localStorage.getItem("am_recap_preview")==="1"; }catch(e){ return false; } }
+const TESTERS=CFG.RECAP_TESTERS||["pepe"];   // solo estas cuentas pueden ver el recap antes de tiempo
+const isTester=()=>{ const me=Store.myPlayer||S.me; return !!me&&TESTERS.includes(me); };
+function preview(){ if(!isTester()) return false; try{ return localStorage.getItem("am_recap_preview")==="1"; }catch(e){ return false; } }
 function available(){ return today()>=RECAP_FROM || preview(); }   // antes del 26/12 solo con el enlace #recap-preview
 if(location.hash==="#recap-preview"){ try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} }
 const ready=()=>Store.member&&(Store.first||Store.local||Object.keys(Store.matches||{}).length>0)&&!document.getElementById("gate");
@@ -603,7 +606,7 @@ window.addEventListener("hashchange",()=>{
   if(location.hash.startsWith("#recap")&&ready()&&available()) openRecap(); });
 /* Vista previa desde la app instalada (donde no se puede escribir una URL): 7 toques seguidos en el logo */
 let taps=[]; document.addEventListener("click",e=>{ if(!e.target.closest(".logo")) return; const t=Date.now(); taps=taps.filter(x=>t-x<4000); taps.push(t);
-  if(taps.length>=7){ taps=[]; try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} if(ready()) openRecap(); else toast("Entra primero en la app"); } });
+  if(taps.length>=7){ taps=[]; if(!isTester()) return; try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} if(ready()) openRecap(); } });
 
 /* Tarjeta en «Hoy» para volver a verlo */
 const vHoyBase=VIEWS.hoy;
