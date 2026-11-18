@@ -147,3 +147,6 @@ module.exports = async (req, res) => {
 };
 module.exports.buildPlan = buildPlan;
 module.exports.fsVal = fsVal;
+module.exports.accessToken = accessToken;
+module.exports.list = list;
+module.exports.str = str;
