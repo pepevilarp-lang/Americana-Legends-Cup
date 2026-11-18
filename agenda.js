@@ -284,12 +284,18 @@ function maybePopup(){
   if(force){ n=+force-1; } else if(n>=3||last===today()) return true;
   try{ localStorage.setItem("am_agpop_n",n+1); localStorage.setItem("am_agpop_d",today()); }catch(e){}
   /* El gancho: el neuralizador, con destello */
-  const V={img:"img/agenda-pop2.webp",pos:"40% 62%",kick:"Mira aquí 👆",title:"A partir de ahora, olvida los aplazamientos",stamp:"¡FLASH!",flash:true};
+  const V={img:"img/agenda-pop2.webp",pos:"40% 62%",kick:"Mira aquí 👆",title:"Seniors, Juniors",stamp:"¡FLASH!",flash:true};
   const el=document.createElement("div"); el.id="agp"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Agenda inteligente");
   el.innerHTML=`${V.flash?'<div class="agp-flash" aria-hidden="true"></div>':""}<div class="agp-box"><button class="agw-x" data-agp-close aria-label="Cerrar">×</button>
     <div class="agp-img"><img src="${V.img}" alt="" style="object-position:${V.pos}"><span class="agp-stamp">${V.stamp}</span></div>
     <div class="agp-body"><small>${V.kick}</small><h2>${V.title}</h2>
-    <p>Contesta <b>3 preguntas</b> (30 segundos) y la app cruza tu agenda con la de tu rival, os propone los huecos que os van bien a los dos y, cuando coincidís, <b>el partido se cierra solo</b>.</p>
+    <p class="agp-lead">Vayamos a solucionar el gran mal de esta liga: <b>los aplazamientos</b> 📅🎾</p>
+    <ol class="agp-steps">
+      <li><span>1</span><p>Contestas <b>3 preguntas</b> (30 segundos): qué días sueles poder, a qué horas y qué días concretos no puedes.</p></li>
+      <li><span>2</span><p>La app cruza tu agenda con la de tu rival y os propone <b>los huecos que os van bien a los dos</b>.</p></li>
+      <li><span>3</span><p>Tocas <b>«me va bien»</b> y, en cuanto los dos marcáis el mismo hueco, <b>el partido se cierra solo</b>. Se acabaron los 40 mensajes de «¿y el jueves?».</p></li>
+    </ol>
+    <p class="agp-more">Además, cada mañana la app os avisará: <i>«Os va bien a los dos el martes a las 20:30, toca para cerrarlo»</i>.</p>
     <button class="btn ball agp-go" data-agp-go>🗓️ Montar mi agenda</button><button class="agp-later" data-agp-close>Luego</button></div></div>`;
   document.body.appendChild(el); document.body.classList.add("agw-on");
   return true;
