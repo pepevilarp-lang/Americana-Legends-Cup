@@ -41,7 +41,7 @@ window.LIGA_CONFIG = {
 // Analítica de uso (PostHog, UE). Pega aquí la "Project API key" (empieza por phc_). Es pública: va en la app.
 // Vacía = no se carga nada y no se pregunta a nadie.
 window.DX_ANALYTICS = {
-  key: "",
+  key: "phc_q5zqwYMPsx6DcEMtTn5Cj8os7gfQEM7iGrYX7wGftAcL",
   host: "https://eu.i.posthog.com",
   app: "americana",
   privacyUrl: "/privacidad.html",
