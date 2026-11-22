@@ -149,6 +149,7 @@ const Store = {
       this.myPlayer=p.data().player; S.me=this.myPlayer; localStorage.setItem("am_me",S.me);
       const adm=await this.db.collection("admins").doc(u.uid).get().catch(()=>null);
       this.isAdmin=!!(adm&&adm.exists); if(this.isAdmin&&window.onAdmin) window.onAdmin();
+      if(window.dxIdentify) dxIdentify(u.uid,{jugador:(PLAYERS.find(x=>x.id===S.me)||{}).name||S.me, rol:this.isAdmin?"admin":"jugador"});
     }catch(e){
       console.error(e);
       setGate("error", isPerm(e) ? "Las reglas de Firebase no están publicadas: pega firestore.rules en Firestore > Reglas." : "No se pudo leer tu cuenta. Revisa la conexión y reintenta.");

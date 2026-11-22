@@ -37,3 +37,13 @@ window.LIGA_CONFIG = {
   CRUCES_IDA: [
     [["alvaro", "tomas"], ["eduardo", "pablo"], ["joan", "marcos"], ["pepe", "carlos"], ["marc", "julian"]], [["alvaro", "pablo"], ["tomas", "marcos"], ["eduardo", "carlos"], ["joan", "julian"], ["pepe", "marc"]], [["alvaro", "marcos"], ["pablo", "carlos"], ["tomas", "julian"], ["eduardo", "marc"], ["joan", "pepe"]], [["alvaro", "carlos"], ["marcos", "julian"], ["pablo", "marc"], ["tomas", "pepe"], ["eduardo", "joan"]], [["alvaro", "julian"], ["carlos", "marc"], ["marcos", "pepe"], ["pablo", "joan"], ["tomas", "eduardo"]], [["alvaro", "marc"], ["julian", "pepe"], ["carlos", "joan"], ["marcos", "eduardo"], ["pablo", "tomas"]], [["alvaro", "pepe"], ["marc", "joan"], ["julian", "eduardo"], ["carlos", "tomas"], ["marcos", "pablo"]], [["alvaro", "joan"], ["pepe", "eduardo"], ["marc", "tomas"], ["julian", "pablo"], ["carlos", "marcos"]], [["alvaro", "eduardo"], ["joan", "tomas"], ["pepe", "pablo"], ["marc", "marcos"], ["julian", "carlos"]]],
 };
+
+// Analítica de uso (PostHog, UE). Pega aquí la "Project API key" (empieza por phc_). Es pública: va en la app.
+// Vacía = no se carga nada y no se pregunta a nadie.
+window.DX_ANALYTICS = {
+  key: "",
+  host: "https://eu.i.posthog.com",
+  app: "americana",
+  privacyUrl: "/privacidad.html",
+  actionAttrs: ["data-tab", "data-x", "data-open-match", "data-open-player", "data-act", "data-pred", "data-versus", "data-sv-nav", "data-agw-preset"]
+};
