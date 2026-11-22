@@ -79,12 +79,13 @@ function afterSync(){
   toPlan(me).forEach(m=>{ const k=AC.agreed(Agenda.plans[m.id],m.a,m.b,today()); if(k) closeMatch(m.id,k); });
 }
 async function closeMatch(mid,key){
-  if(closing[mid]) return; const m=getMatch(mid); if(m.date||result(m)) return;
+  if(closing[mid]) return false; const m=getMatch(mid); if(m.date||result(m)) return false;
   closing[mid]=true;
   const [date,time]=key.split("|"); const base={...(Store.matches[mid]||{})};
   const ok=await Store.setMatch(mid,{...base,date,time});
   if(ok){ toast(`✅ Partido cerrado: ${AC.label(key)}`); celebrate(); }
   setTimeout(()=>{ delete closing[mid]; },4000);
+  return ok;
 }
 function celebrate(){
   const c=document.createElement("div"); c.className="ag-confetti"; c.innerHTML=Array.from({length:28},(_,i)=>`<i style="--x:${Math.random()*100}vw;--d:${(Math.random()*.6).toFixed(2)}s;--r:${Math.round(Math.random()*720-360)}deg;--c:${["#E3FF3B","#3E86E8","#fff","#14A06A","#F3C64E"][i%5]}"></i>`).join("");
@@ -227,6 +228,7 @@ async function finishWizard(){
   const marks={}; Object.entries(WZ.marks).forEach(([d,v])=>{ if(d>=today()&&(v==="no"||v==="si")) marks[d]=v; });
   const ok=await saveAvail({days,wk:hasWk?[...WZ.wk]:[],we:hasWe?[...WZ.we]:[],marks});
   if(!ok) return;
+  capturePostHog("availability_saved",{weekday_count:days.length,has_weekday_availability:hasWk,has_weekend_availability:hasWe,exception_count:Object.keys(marks).length});
   const pend=toPlan(me), found=pend.map(m=>plannerData(m)).filter(Boolean).filter(x=>x.r.status==="ok").length;
   const el=document.getElementById("agw");
   if(el) el.innerHTML=`<div class="agw-box agw-done"><div class="agw-check">✓</div><h2>¡Agenda lista!</h2>
@@ -255,7 +257,8 @@ document.addEventListener("click",async e=>{
     const key=pk.dataset.key, list=picksOf(mid,me); const i=list.indexOf(key); i>=0?list.splice(i,1):list.push(key);
     if(await savePicks(mid,list.slice(0,12))){
       const k=AC.agreed(Agenda.plans[mid],m.a,m.b,today());
-      if(k) closeMatch(mid,k); else if(i<0){ toast(`Propuesto. Avisamos a ${nm(m.a===me?m.b:m.a)}`); notifyRival(mid,me); }
+      if(k){ if(await closeMatch(mid,k)) capturePostHog("match_slot_confirmed",{match_id:m.id,round:m.j}); }
+      else if(i<0){ capturePostHog("match_slot_proposed",{match_id:m.id,round:m.j,proposal_source:"suggested_slot"}); toast(`Propuesto. Avisamos a ${nm(m.a===me?m.b:m.a)}`); notifyRival(mid,me); }
       Store.bump(); refreshModal();
     }
     return;
@@ -267,7 +270,8 @@ document.addEventListener("click",async e=>{
     if(!di.value||!ti.value){ toast("Elige día y hora"); return; }
     if(di.value<today()){ toast("Esa fecha ya ha pasado"); return; }
     const me=myId(), list=picksOf(mid,me), key=`${di.value}|${ti.value}`; if(!list.includes(key)) list.push(key);
-    if(await savePicks(mid,list.slice(0,12))){ const m=getMatch(mid), k=AC.agreed(Agenda.plans[mid],m.a,m.b,today()); if(k) closeMatch(mid,k); else { toast("Propuesta enviada"); notifyRival(mid,me); } Store.bump(); refreshModal(); }
+    if(await savePicks(mid,list.slice(0,12))){ const m=getMatch(mid), k=AC.agreed(Agenda.plans[mid],m.a,m.b,today()); if(k){ if(await closeMatch(mid,k)) capturePostHog("match_slot_confirmed",{match_id:m.id,round:m.j}); }
+      else { capturePostHog("match_slot_proposed",{match_id:m.id,round:m.j,proposal_source:"custom_slot"}); toast("Propuesta enviada"); notifyRival(mid,me); } Store.bump(); refreshModal(); }
     return;
   }
   const ask=t.closest("[data-ag-ask]"); if(ask){ askRival(ask.dataset.agAsk); return; }

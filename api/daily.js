@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const webpush = require("web-push");
 const { JORNADAS, NAMES, FIXTURE, RECAP_FROM } = require("./_liga");
 const AC = require("../agenda-core.js");
+const { log, flushLogs } = require("./posthog-logs");
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "americana-legends-cup";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
@@ -134,6 +135,7 @@ module.exports = async (req, res) => {
     const today = (req.query && req.query.date) || ymdMadrid();
     const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs) });
     if (req.query && req.query.dry) return res.status(200).json({ today, plan });
+    log("info", "daily_notification_plan_created", { recipient_count: Object.keys(plan).length, subscription_count: pDocs.length });
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:liga@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     let sent = 0, failed = 0;
     await Promise.all(pDocs.map(async d => {
@@ -142,8 +144,14 @@ module.exports = async (req, res) => {
       try { await webpush.sendNotification(sub, JSON.stringify({ url: "./#hoy", ...p }), { TTL: 6 * 3600, urgency: p.quiet ? "low" : "normal" }); sent++; }
       catch (e) { failed++; }
     }));
+    log("info", "daily_notifications_dispatched", { recipient_count: Object.keys(plan).length, sent_count: sent, failed_count: failed });
+    await flushLogs();
     res.status(200).json({ today, people: Object.keys(plan).length, sent, failed });
-  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+  } catch (e) {
+    log("error", "daily_notification_run_failed");
+    await flushLogs();
+    res.status(500).json({ error: String(e.message || e) });
+  }
 };
 module.exports.buildPlan = buildPlan;
 module.exports.fsVal = fsVal;

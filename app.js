@@ -91,9 +91,24 @@ function authErrMsg(e){
 }
 const normPin = v => String(v||"").toUpperCase().replace(/[\s\-_.]/g,"");
 const isPerm = e => /permission|PERMISSION_DENIED/i.test(String(e&&(e.code||e.message)));
+const capturePostHog = (event, properties={})=>{ try{ if(window.posthog) window.posthog.capture(event,properties); }catch(_){} };
+const matchEventProperties = m => ({match_id:m.id,stage:m.playoff?"playoff":"league",round:m.j});
 const Store = {
-  matches:{}, preds:{}, votes:{}, db:null, member:false, listening:false, local:false, first:false, unsubs:[],
+  matches:{}, preds:{}, votes:{}, db:null, member:false, listening:false, local:false, first:false, unsubs:[], posthogUserId:null,
   bump(){ VERSION++; schedule(); },
+  identifyPostHog(u){
+    const identify=()=>{
+      if(!window.posthog||this.posthogUserId===u.uid||!firebase.auth().currentUser||firebase.auth().currentUser.uid!==u.uid) return;
+      const person={email:u.email}; if(u.displayName) person.name=u.displayName;
+      window.posthog.identify(u.uid,person); this.posthogUserId=u.uid;
+    };
+    if(window.posthog) identify();
+    else window.addEventListener("posthog:ready",identify,{once:true});
+  },
+  resetPostHog(){
+    if(window.posthog) window.posthog.reset();
+    this.posthogUserId=null;
+  },
   async init(){
     /* Sin Firebase configurado: modo prueba con PIN local */
     if(!CFG.FIREBASE && !IS_LOCAL){
@@ -128,7 +143,7 @@ const Store = {
     }
     let user=await new Promise(res=>{ const un=firebase.auth().onAuthStateChanged(u=>{ if(un) un(); res(u); }); });
     /* Sesión anónima de la primera versión de la app: no sirve (no tiene correo). Se descarta y se pide Google. */
-    if(user&&(user.isAnonymous||!user.email)){ try{ await firebase.auth().signOut(); }catch(_){} ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k)); user=null; }
+    if(user&&(user.isAnonymous||!user.email)){ this.resetPostHog(); try{ await firebase.auth().signOut(); }catch(_){} ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k)); user=null; }
     const cameBack=sessionStorage.getItem("am_redirect")==="1"; sessionStorage.removeItem("am_redirect");
     if(!user){
       /* Si volvemos de Google sin sesión, decimos por qué en vez de enseñar otra vez el botón sin más */
@@ -141,7 +156,8 @@ const Store = {
   /* Orden: cuenta de Google -> su cara (una vez por cuenta) -> avisos (una vez por dispositivo) -> PIN (una vez por cuenta) -> app */
   async afterLogin(){
     const u=firebase.auth().currentUser; if(!u){ setGate("login"); return; }
-    if(u.isAnonymous||!u.email){ try{ await firebase.auth().signOut(); }catch(_){} setGate("login","Tu sesión era antigua. Entra con Google."); return; }
+    if(u.isAnonymous||!u.email){ this.resetPostHog(); try{ await firebase.auth().signOut(); }catch(_){} setGate("login","Tu sesión era antigua. Entra con Google."); return; }
+    this.identifyPostHog(u);
     setGate("loading","Comprobando tu cuenta…");
     try{
       const p=await this.db.collection("players").doc(u.uid).get();
@@ -203,6 +219,7 @@ const Store = {
     });
   },
   async switchAccount(){
+    this.resetPostHog();
     try{ await firebase.auth().signOut(); }catch(e){}
     ["am_ok","am_push","am_me"].forEach(k=>localStorage.removeItem(k));
     location.reload();
@@ -1126,7 +1143,7 @@ function openResult(id){
     if(err){ document.getElementById("rerr").textContent=err; return; }
     const base={...(Store.matches[id]||{})}; delete base.hist; delete base.woWinner;
     const doc={...base,status:"done",sets:out}; if(m.playoff){doc.a=m.a;doc.b=m.b;}
-    if(await Store.setMatch(id,doc)){ toast("Resultado guardado"); openMatch(id); }
+    if(await Store.setMatch(id,doc)){ capturePostHog("match_result_recorded",{...matchEventProperties(m),entry_method:"manual"}); toast("Resultado guardado"); openMatch(id); }
   };
 }
 
@@ -1138,12 +1155,13 @@ function openScorer(id){
     <div class="tapzone">${["a","b"].map(s=>`<button class="tap" data-tap="${s}" style="--c:${col(m[s])}" ${m.status==="done"?"disabled":""}><img src="${IMG(m[s])}" alt=""><span>${nm(m[s])}</span><small>+1</small></button>`).join("")}</div>
     <div class="btnrow" style="justify-content:center;margin:0"><button class="btn ghost" id="undo" ${(m.hist&&m.hist.length)?"":"disabled"}>Deshacer</button><button class="btn" id="sclose">Cerrar</button></div></div>`;
   document.body.style.overflow="hidden";
-  el.querySelectorAll("[data-tap]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-tap]").forEach(b=>b.onclick=async()=>{
     const cur=getMatch(id), nx=liveAdd(cur,b.dataset.tap); if(!nx) return;
     const hist=[...(cur.hist||[]),JSON.stringify(cur.sets||[])].slice(-40);
     const doc={...(Store.matches[id]||{}),status:nx.done?"done":"live",sets:nx.sets,hist}; if(cur.playoff){doc.a=cur.a;doc.b=cur.b;}
     if(navigator.vibrate) navigator.vibrate(12);
-    Store.setMatch(id,doc); if(nx.done) toast(`¡Partido para ${nm(cur[setsWon(nx.sets).a===2?"a":"b"])}!`);
+    const saved=await Store.setMatch(id,doc);
+    if(saved&&nx.done){ capturePostHog("match_result_recorded",{...matchEventProperties(cur),entry_method:"live_scorer"}); toast(`¡Partido para ${nm(cur[setsWon(nx.sets).a===2?"a":"b"])}!`); }
   });
   document.getElementById("undo").onclick=()=>{ const cur=getMatch(id); if(!cur.hist||!cur.hist.length) return; const hist=[...cur.hist], prev=JSON.parse(hist.pop()); Store.setMatch(id,{...(Store.matches[id]||{}),status:"live",sets:prev,hist}); };
   document.getElementById("sclose").onclick=()=>openMatch(id);
@@ -1164,7 +1182,7 @@ document.addEventListener("click",e=>{
     if(!S.me){ toast("Primero elige quién eres"); return; }
     if(t.dataset.vote===S.me){ toast("No puedes votarte a ti mismo"); return; }
     const J=S.mvpJ||currentJ();
-    Store.setVote(`J${J}__${S.me}`,{j:J,v:S.me,c:t.dataset.vote,t:Date.now()}).then(ok=>ok&&toast(`Voto para ${nm(t.dataset.vote)}`));
+    Store.setVote(`J${J}__${S.me}`,{j:J,v:S.me,c:t.dataset.vote,t:Date.now()}).then(ok=>{ if(ok){ capturePostHog("mvp_vote_submitted",{round:J}); toast(`Voto para ${nm(t.dataset.vote)}`); } });
     return;
   }
   if(t.id==="export"){
@@ -1184,7 +1202,7 @@ document.addEventListener("click",e=>{
     const id=t.dataset.pred, key=`${id}__${S.me}`, prev=Store.preds[key], m=getMatch(id);
     if(result(m)||m.status==="live"){ toast("Este partido ya ha empezado"); return; }
     const r=t.dataset.r||(prev&&prev.w===t.dataset.w?prev.r:"20");
-    Store.setPred(key,{m:id,v:S.me,w:t.dataset.w,r,t:Date.now()}).then(ok=>ok&&toast("Pronóstico guardado"));
+    Store.setPred(key,{m:id,v:S.me,w:t.dataset.w,r,t:Date.now()}).then(ok=>{ if(ok){ capturePostHog("prediction_saved",{...matchEventProperties(m),prediction_sets:r}); toast("Pronóstico guardado"); } });
     return;
   }
   if(t.dataset.act){
@@ -1194,11 +1212,11 @@ document.addEventListener("click",e=>{
       const m=getMatch(id), base={...(Store.matches[id]||{})}; if(m.playoff){base.a=m.a;base.b=m.b;}
       if(act==="live"){ if(m.status!=="live") Store.setMatch(id,{...base,status:"live",sets:[],hist:[]}); openScorer(id); }
       if(act==="result") openResult(id);
-      if(act==="details"){ if(await Store.setMatch(id,{...base,...vals})) toast("Guardado"); }
+      if(act==="details"){ if(await Store.setMatch(id,{...base,...vals})){ capturePostHog("match_schedule_saved",{...matchEventProperties(m),has_date:!!vals.date,has_time:!!vals.time,has_court:!!vals.court}); toast("Guardado"); } }
       if(act==="wo"){
         S.modal=null;
         showModal(`<div class="sheet-body"><h3>Incomparecencia</h3><p class="mini">Cuenta como victoria 2-0 (3 puntos) sin sumar juegos. ¿Quién gana?</p><div class="pickrow"><button class="pick" id="woa">${av(m.a,"sm")}${nm(m.a)}</button><button class="pick" id="wob">${nm(m.b)}${av(m.b,"sm")}</button></div><div class="btnrow"><button class="btn ghost" data-open-match="${id}">Cancelar</button></div></div>`);
-        const set=async w=>{ if(await Store.setMatch(id,{...base,status:"wo",woWinner:w,sets:[]})){ toast("WO registrado"); openMatch(id);} };
+        const set=async w=>{ if(await Store.setMatch(id,{...base,status:"wo",woWinner:w,sets:[]})){ capturePostHog("match_result_recorded",{...matchEventProperties(m),entry_method:"walkover"}); toast("WO registrado"); openMatch(id);} };
         document.getElementById("woa").onclick=()=>set("a"); document.getElementById("wob").onclick=()=>set("b");
       }
       if(act==="reset"&&confirm("¿Borrar el resultado de este partido?")){

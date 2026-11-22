@@ -729,6 +729,8 @@ async function svSubmit(){
     const b=document.querySelector("[data-sv-nav='send']"); if(b){ b.disabled=false; b.textContent="Enviar encuesta"; }
     return;
   }
+  const surveyMatch=getMatch(d.matchId);
+  capturePostHog("post_match_survey_submitted",{match_id:d.matchId,round:surveyMatch.j});
   SV_RUN.idx++; SV_RUN.step=0; SV_RUN.ans={};
   if(SV_RUN.idx<SV_RUN.list.length){ svRender(); toast("¡Enviada! Queda otra encuesta"); return; }
   SV_RUN.ov.remove(); SV_RUN=null; document.body.classList.remove("locked"); render(); toast("¡Gracias! Encuestas completadas");
