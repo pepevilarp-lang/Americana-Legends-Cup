@@ -29,6 +29,8 @@ const SONGS = {
   titi:     {t:"Tití Me Preguntó",     a:"Bad Bunny",                     id:1622045635, why:x=>`El mejor pronosticador de la ida: ${x.pred.hits} de ${x.pred.n} aciertos. Todos te preguntan quién gana.`},
   losiento: {t:"Lo Siento BB:/",       a:"Tainy, Bad Bunny & Julieta Venegas", id:1586673104, ok:x=>x.R.pj>0&&x.R.pos>=8, why:x=>`Cierras la ida ${x.R.pos}.º. Lo siento, pero la segunda vuelta te debe una.`},
   paso:     {t:"Lo Que Pasó, Pasó",    a:"Daddy Yankee",                  id:1786000220, ok:x=>x.R.pj>0&&x.R.pp>=x.R.pg, why:x=>`Balance de ${x.R.pg}–${x.R.pp}. Lo que pasó, pasó: en febrero, borrón y cuenta nueva.`},
+  sol:      {t:"Salió el Sol",         a:"Don Omar",                      id:1443507774, ok:x=>x.R.pj>0, why:x=>`Una ida de ${x.R.pg}–${x.R.pp} y ${x.R.pos}.º puesto. Al final siempre sale el sol: la vuelta es tuya.`},
+  vida:     {t:"Vivir Mi Vida",        a:"Marc Anthony",                  id:668743167,  ok:x=>x.R.pj>0, why:x=>`${x.R.pj} ${x.R.pj===1?"partido":"partidos"} y ${x.R.pos}.º puesto. Ríe, baila y juega: esta liga se vive.`},
   bonito:   {t:"Me Porto Bonito",      a:"Bad Bunny & Chencho Corleone",  id:1622045634, ok:x=>x.R.pj>0, why:x=>`${x.R.pg}–${x.R.pp} y ${x.R.pos}.º puesto. Una ida sin sobresaltos: te has portado bonito.`},
 };
 const q_=s=>encodeURIComponent(s.t+" "+s.a.split(/,|&/)[0].trim());
@@ -105,7 +107,7 @@ function idaStats(){
     const usedS=new Set(), song={};
     cand.forEach(c=>{ if(song[c.id]||usedS.has(c.k)) return; song[c.id]=c.k; usedS.add(c.k); });
     // Último recurso (muy improbable): se repite la canción neutra que encaje antes que poner una frase falsa
-    const NEUTRAL=["bonito","paso","provenza","callaita","calma","kuduro","safaera","tusa","gasolina","despacito"];
+    const NEUTRAL=["bonito","sol","vida","paso","provenza","callaita","calma","kuduro","safaera","tusa","gasolina","despacito"];
     PLAYERS.forEach(p=>{ if(song[p.id]) return; const ok=k=>!SONGS[k].ok||SONGS[k].ok(out[p.id]);
       const k=NEUTRAL.find(k=>!usedS.has(k)&&ok(k))||NEUTRAL.find(ok)||"bonito"; song[p.id]=k; usedS.add(k); });
     PLAYERS.forEach(p=>out[p.id].song=song[p.id]);
