@@ -440,7 +440,7 @@ function slides(id){
     <div class="rc-listen" data-nostep><small>Escúchala entera</small>${listenLinks(S2)}</div>`,S2.id);
   add("card",0,`<div class="rc-kick">Tu resumen</div>
     <div class="rc-card" style="--c:${p.color}">
-      <div class="rc-card-top">${face(id)}<div><b>${esc(p.name)}</b><small>${esc(p.nick)} · Primera vuelta</small></div></div>
+      <div class="rc-card-top">${face(id)}<div><b>${esc(p.name)}</b><small>Primera vuelta · 2026–27</small></div></div>
       <div class="rc-card-grid"><div><b>${R.pos||"–"}º</b><small>puesto</small></div><div><b>${R.pg}–${R.pp}</b><small>balance</small></div><div><b>${R.pts}</b><small>puntos</small></div><div><b>${R.best}</b><small>mejor racha</small></div></div>
       <div class="rc-card-song">🎧 Tu canción es <b>${esc(S2.t)}</b> · ${esc(S2.a)}<span>${esc(S2.why(x))}</span></div>
       <div class="rc-card-foot">Americana Legends Cup · Vol. 1</div>
@@ -570,7 +570,7 @@ async function shareCard(id,btn){
     g.fillStyle="#fff"; g.textAlign="left"; g.font=`700 38px ${B}`; g.fillText("AMERICANA LEGENDS CUP · VOL. 1",80,120);
     g.font=`italic 900 150px ${D}`; g.fillText("MI PRIMERA",80,290); g.fillStyle="#E3FF3B"; g.fillText("VUELTA",80,430);
     g.fillStyle="#fff"; g.font=`italic 900 120px ${D}`; g.fillText(p.first.toUpperCase(),80,1010);
-    g.font=`600 40px ${B}`; g.fillStyle="rgba(255,255,255,.8)"; g.fillText(p.nick,84,1070);
+    g.font=`600 40px ${B}`; g.fillStyle="rgba(255,255,255,.8)"; g.fillText("Primera vuelta · 2026–27",84,1070);
     g.shadowBlur=0; g.shadowColor="transparent";
     const stats=[[`${R.pos||"–"}º`,"PUESTO"],[`${R.pg}–${R.pp}`,"BALANCE"],[`${R.pts}`,"PUNTOS"],[`${R.best}`,"MEJOR RACHA"]];
     stats.forEach(([v,l],i)=>{ const cx=80+(i%2)*470, cy=1120+Math.floor(i/2)*200; g.fillStyle="rgba(255,255,255,.1)"; g.fillRect(cx,cy,440,180);
