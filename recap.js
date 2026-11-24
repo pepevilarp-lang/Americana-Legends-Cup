@@ -67,6 +67,9 @@ function idaStats(){
         if(!won&&r.sa+r.sb===3) x.tight++; const conc=me==="a"?r.gb:r.ga; if(won&&r.sa+r.sb===2&&conc<=4) x.easy++; });
       x.tight+=R.tbL;
       x.firstLost=R.form[0]==="L";
+      // Lo que contestó en las encuestas de después del partido (solo cifras agregadas)
+      const st=(Store.recapSurveys||{})[p.id]||{}, q8=st.q8||{}, q3b=Object.entries(st.q3b||{}).sort((a,b)=>b[1]-a[1]);
+      x.sv={noRefleja:(q8["Nada"]||0)+(q8["Poco"]||0), derecha:((st.q3b||{})["Derecha"]||0)>=1};
       // Plazos: partidos tuyos fuera de su jornada (jugados tarde o aún sin jugar con la jornada cerrada)
       x.late=0; x.pend=0; x.woL=0; x.woW=0; const t0=today();
       FIXTURE.filter(f=>f.j<=IDA&&(f.a===p.id||f.b===p.id)).forEach(f=>{ const m=getMatch(f.id), r=result(m), end=JORNADAS[f.j-1][1];
@@ -91,7 +94,8 @@ function idaStats(){
     const pjs=PLAYERS.map(p=>by[p.id].pj), maxPj=Math.max(...pjs), minPj=Math.min(...pjs);
     const maxVotes=Math.max(0,...Object.values(votes));
     const maxStb=Math.max(0,...PLAYERS.map(p=>out[p.id].stb));
-    PLAYERS.forEach(p=>{ out[p.id].maxPj=maxPj; out[p.id].maxStb=maxStb; });
+    const maxLate=Math.max(0,...PLAYERS.map(p=>out[p.id].late));
+    PLAYERS.forEach(p=>{ out[p.id].maxPj=maxPj; out[p.id].maxStb=maxStb; out[p.id].maxLate=maxLate; });
     const bestPred=Object.entries(pred).filter(([,v])=>v.n>=5).sort((a,b)=>(b[1].hits+b[1].exact*2)/b[1].n-(a[1].hits+a[1].exact*2)/a[1].n)[0];
     PLAYERS.forEach(p=>{ out[p.id].maxVotes=maxVotes; out[p.id].isOracle=!!(bestPred&&bestPred[0]===p.id); });
     // Reparto de canciones: puntuación por perfil, la más alta se queda la canción
@@ -301,80 +305,109 @@ function leagueStats(){
 }
 
 /* ---------- Bromas ----------
-   Cada broma va atada a un dato y solo sale si ese dato es cierto. Referencias de fondo (comprobadas):
-   - Rodalies: los trenes nuevos se esperaban en 2025 y ahora llegan en primavera de 2027.
-   - Presupuestos Generales: los de 2023, prorrogados en 2024, 2025 y 2026.
-   - Isner–Mahut, Wimbledon 2010: 11 h 05 y 183 juegos. Final de Roland Garros 2025, Alcaraz–Sinner: 5 h 29.
-   - Nadal: 14 Roland Garros. */
+   Estilo: pique directo entre amigos. Cada broma va atada a un dato y lleva una etiqueta (la referencia):
+   en un mismo recap no se repite ninguna etiqueta, así que nunca salen dos de Renfe, dos de Wimbledon, etc.
+   Cuando varias encajan, gana la de más peso; a igualdad, cada jugador recibe una distinta. */
 const vs=m=>`${P[m.a].first}–${P[m.b].first}`;
+const J_=(when,score,tag,text)=>when?{score,tag,text}:null;
 const jokesLiga = {
-  plazos: L=>[
-    L.oldest&&L.oldest.d>=30&&[L.mostFixed&&L.mostFixed.m.id===L.oldest.m.id?60:90,`Los trenes nuevos de Rodalies se esperaban para 2025 y llegarán en primavera de 2027. ${vs(L.oldest.m)} (J${L.oldest.m.j}) va por el mismo camino: ${L.oldest.d} días fuera de plazo.`],
-    L.worst&&L.worst.d>=25&&[80,`${vs(L.worst.m)} se jugó ${L.worst.d} días tarde. Si fuera un tren, Renfe te devolvería el billete.`],
-    L.played&&L.onTime/L.played<.5&&[70,`${Math.round(100*L.onTime/L.played)}% de puntualidad. Hay mañanas en la R2 que os mirarían por encima del hombro.`],
-    [10,`Aplazar también es parte del juego. Con honor.`],
-  ],
+  plazos: L=>{ const pct=L.played?Math.round(100*L.onTime/L.played):100; return [
+    J_(L.played&&pct<50,90,"ryanair",`${L.onTime} de ${L.played} partidos jugados en su jornada. Si esto fuera Ryanair, cada vez que se juega uno a tiempo sonaría la trompetita.`),
+    J_(L.worst&&L.worst.d>=25,80,"tarde",`${vs(L.worst.m)} se jugó ${L.worst.d} días tarde. Para entonces, alguno ya ni se acordaba de cómo se cogía la raqueta.`),
+    J_(L.oldest&&L.oldest.d>=30,70,"campnou",`${vs(L.oldest.m)} lleva ${L.oldest.d} días fuera de plazo. Como las obras del Camp Nou: siempre está a punto de acabarse.`),
+    J_(true,1,"base",`Aplazar también es parte del juego. Con honor.`),
+  ]; },
   honores: L=>[
-    L.mostFixed&&!L.mostFixed.played&&[95,`${vs(L.mostFixed.m)}: ${L.mostFixed.n} fechas fijadas y 0 partidos. Lleva más prórrogas que los Presupuestos Generales.`],
-    L.mostFixed&&L.mostFixed.played&&[85,`${vs(L.mostFixed.m)} necesitó ${L.mostFixed.n} fechas para jugarse. Ni una investidura.`],
-    L.longest&&L.longest.g>=24&&[60,`${L.longest.g} juegos entre ${vs(L.longest.m)}. Isner y Mahut jugaron 183 en Wimbledon… pero ellos no tenían que fichar el lunes.`],
-    L.wo>=2&&[55,`${L.wo} partidos ganados por WO. La forma más elegante de ganar sin sudar la camiseta.`],
-    [10,`Con todo el honor del mundo: aquí aplazar es casi disciplina olímpica.`],
+    J_(L.mostFixed&&!L.mostFixed.played,95,"chiringuito",`${vs(L.mostFixed.m)}: ${L.mostFixed.n} fechas fijadas y 0 partidos. Tiene más amagos que un fichaje de verano en El Chiringuito.`),
+    J_(L.mostFixed&&L.mostFixed.played,85,"boda",`${vs(L.mostFixed.m)} necesitó ${L.mostFixed.n} fechas para jugarse. Hay bodas que se organizan con menos llamadas.`),
+    J_(L.longest&&L.longest.g>=20,60,"sobremesa",`${L.longest.g} juegos entre ${vs(L.longest.m)}. Dio tiempo a pedir, comer y alargar la sobremesa.`),
+    J_(L.wo>=2,55,"sofa",`${L.wo} partidos ganados por WO. La victoria más cómoda desde que se inventó el sofá.`),
+    J_(true,1,"base",`Con todo el honor del mundo: aquí aplazar es casi disciplina olímpica.`),
   ],
-  fuera: L=>{ const g=L.X.github||{}, r=L.played?(g.commits||0)/L.played:0; return [
-    L.excuse&&[95,`Según vuestras encuestas, «${L.excuse.k.toLowerCase()}» aparece en ${L.excuse.l} derrotas y en ${L.excuse.w} ${L.excuse.w===1?"victoria":"victorias"}. Las condiciones, invictas.`],
-    r>=4&&[80,`Por cada partido jugado, la app se ha actualizado ${Math.round(r)} veces. Aquí el que más entrena es el código.`],
-    L.predLast&&L.predFirstWeek>=20&&dayDiff(L.predLast,today())>=21&&[70,`${L.predFirstWeek} pronósticos la primera semana. Desde el ${fmtDia(L.predLast)}, silencio. Duró menos que la dieta de septiembre.`],
-    L.votes<=10&&L.votes>0&&[50,`${L.votes} votos MVP en toda la ida. En una junta de vecinos se vota más.`],
-    [10,`Lo que pasa fuera de la pista también cuenta.`],
+  fuera: L=>{ const g=L.X.github||{}; return [
+    J_(L.excuse,95,"viento",`Según vuestras encuestas, «${(L.excuse||{}).k?.toLowerCase()}» aparece en ${(L.excuse||{}).l} derrotas. En esta liga el viento gana más que media tabla.`),
+    J_(g.commits&&L.played&&g.commits/L.played>=4,80,"app",`La app se ha actualizado ${g.commits} veces y se han jugado ${L.played} partidos. Aquí se programa más de lo que se juega.`),
+    J_(L.votes>0&&L.votes<=10,60,"eurovision",`${L.votes} votos MVP en toda la ida. Ni a Eurovisión le hacemos tan poco caso.`),
+    J_(L.predLast&&L.preds>=20&&dayDiff(L.predLast,today())>=21,50,"whatsapp",`${L.preds} pronósticos y, desde el ${fmtDia(L.predLast||today())}, silencio. Como el grupo de WhatsApp al día siguiente de la cena.`),
+    J_(true,1,"base",`Lo que pasa fuera de la pista también cuenta.`),
   ]; },
 };
-/* Frase de entrada de cada jugador, según cómo le ha ido */
+/* Frase de entrada de cada jugador: quién es esta temporada (sin broma, para presentar) */
 function tagline(x,L){ const R=x.R, id=x.id;
   const c=[
-    R.pj>=2&&R.pos===1&&[90,`Líder de la ida. Que tiemble la tabla.`],
-    R.pj>=2&&R.jc<=R.pj*3&&[85,`${R.pj} partidos, ${R.jc} juegos cedidos. Nadal ganó 14 Roland Garros y cedía más.`],
-    !R.pj&&[80,`La primera vuelta, en modo avión.`],
-    L.lateKing&&L.lateKing[0]===id&&[75,`El rey del «esta semana no me va».`],
-    R.pj&&R.pg===0&&[60,`Una ida para olvidar. Por eso vamos a recordarla.`],
-    x.woW>=1&&R.pg===x.woW&&[55,`Tus victorias llegaron sin tocar bola. Eso también es talento.`],
-    x.stb>=1&&x.stb===x.maxStb&&[45,`Si hay super tie-break, ahí estás. El corazón de la liga, a 10 puntos.`],
-    x.votes>=2&&x.votes===x.maxVotes&&[50,`El favorito de la grada. Los votos no mienten.`],
-    x.isOracle&&[48,`El oráculo de la liga: acierta más pronósticos que el Meteocat.`],
-    R.pj&&R.pos>=2&&R.pos<=3&&[35,`En la pomada, a la caza del líder.`],
-    R.pj&&R.pp>R.pg&&[30,`Una ida cuesta arriba. Las mejores remontadas empiezan así.`],
-    [10,R.pos<=4?`Zona noble de la tabla. Veamos cómo llegaste.`:`Una ida con mucha vuelta por delante.`],
+    J_(R.pj>=2&&R.pos===1,90,"t",`Líder de la ida. Que tiemble la tabla.`),
+    J_(R.pj>=2&&R.jc<=R.pj*3,85,"t",`${R.pj} partidos y ${R.jc} juegos cedidos. Ni Nadal en la Chatrier.`),
+    J_(!R.pj,80,"t",`La primera vuelta, en modo avión.`),
+    J_(L.lateKing&&L.lateKing[0]===id,75,"t",`El rey del «esta semana no me va».`),
+    J_(R.pj&&R.pg===0,60,"t",`Una ida para olvidar. Por eso vamos a recordarla.`),
+    J_(x.votes>=2&&x.votes===x.maxVotes,50,"t",`El favorito de la grada. Los votos no mienten.`),
+    J_(x.isOracle,48,"t",`El oráculo de la liga: el que más acierta quién gana.`),
+    J_(x.stb>=1&&x.stb===x.maxStb,45,"t",`Si hay super tie-break, ahí estás. El corazón de la liga, a 10 puntos.`),
+    J_(R.pj&&R.pos>=2&&R.pos<=3,35,"t",`En la pomada, a la caza del líder.`),
+    J_(R.pj&&R.pp>R.pg,30,"t",`Una ida cuesta arriba. Las mejores remontadas empiezan así.`),
+    J_(true,10,"t",R.pos<=4?`Zona noble de la tabla. Veamos cómo llegaste.`:`Una ida con mucha vuelta por delante.`),
   ];
-  return pickJoke(c,new Set()); }
-function jokesYo(k,x,L){ const R=x.R, late=x.late, op=m=>P[m.a===x.id?m.b:m.a].first;
+  return pickJoke(c,new Set(),x.id); }
+/* Bromas de cada jugador, por historia */
+function jokesYo(k,x,L){ const R=x.R, late=x.late, op=m=>P[m.a===x.id?m.b:m.a].first, sv=x.sv||{};
+  const few=R.pj<=Math.max(1,x.maxPj-3), lossy=R.pj&&R.pp>R.pg;
+  const maxLate=x.maxLate||0, topLate=late>=3&&late===maxLate, hadPaliza=R.res.some(m=>isPaliza(m,x.id));
   if(k==="nums") return [
-    R.pj<=1&&x.pend>=2&&[90,`${pl(R.pj,"partido jugado","partidos jugados")} y ${x.pend} pendientes. Tu temporada va con más retraso que la R3.`],
-    late>=2&&[L.lateKing&&L.lateKing[0]===x.id?80:45,[
-      `${late} partidos tuyos fuera de su jornada. Tu calendario lo diseña Adif.`,
-      `${late} partidos fuera de plazo. Tu agenda tiene más incidencias que el panel de Sants.`,
-      `${late} partidos fuera de su jornada. En Renfe ya preguntan por ti para planificar horarios.`,
-      `${late} partidos tarde. En Wimbledon ya te habrían multado por retraso.`][hashStr(x.id)%4]],
-    R.pg===0&&R.pp>=2&&[70,`Cero victorias, pero las ganas intactas. Eso no sale en ninguna estadística.`],
-    R.pg>=3&&R.pp===0&&[75,`Invicto. Lo único que te ha parado ha sido el calendario.`],
-    R.pp>=3&&R.pp>R.pg&&[60,`${R.pp} derrotas y sigues pidiendo pista. Eso no lo enseñan en ninguna academia.`],
+    J_(topLate,85,"renfe",`Has aplazado tantos partidos que ya no sabemos si juegas al tenis o trabajas en Renfe.`),
+    J_(topLate,85,"netflix",`Tienes más partidos a medias que series empezadas en Netflix.`),
+    J_(topLate,85,"opositor",`Aplazas más que un opositor que empieza a estudiar «el lunes».`),
+    J_(late>=2&&!topLate,50,"cena",`Cuadrar un partido contigo es como cuadrar la cena de antiguos alumnos: todos dicen que sí, nadie pone fecha.`),
+    J_(few,84,"hazard",`${pl(R.pj,"partido","partidos")} en toda la ida. Has jugado menos que Hazard en el Madrid.`),
+    J_(R.pp>=1&&(sv.noRefleja||0)>=1,88,"pedrerol",`Pierdes un partido y ya tienes más explicaciones que Pedrerol un lunes.`),
+    J_(R.pp>=1&&sv.derecha,87,"derecha",`Tu derecha tiene más peligro para el público que para el rival.`),
+    J_(hadPaliza,76,"torrente",`Hubo un día en que tuviste menos elegancia que Torrente jugando en Wimbledon.`),
+    J_(R.pj&&R.pg===0,75,"relacion",`Tu relación con ganar es complicada: tú quieres, pero ella no.`),
+    J_(lossy&&R.pg>0,55,"distancia",`La victoria y tú tenéis una relación a distancia.`),
+    J_(R.pg>=3&&R.pp===0,70,"hacienda",`Invicto. A ti no te ha pillado ni Hacienda.`),
+    J_(R.pj>=2&&R.pos===1,65,"prismaticos",`Vas tan primero que el segundo te mira con prismáticos.`),
+    J_(R.pj&&R.pj===x.maxPj&&R.pj>=4,50,"ibi",`Pisas tanto la pista que el club te va a cobrar el IBI.`),
+    J_(R.pj&&R.pos===PLAYERS.length,45,"tabla",`Desde donde estás en la tabla solo se puede mirar hacia arriba. Algo es algo.`),
+    J_(R.pj&&R.pg===R.pp,40,"antena3",`Ni fu ni fa: si tu ida fuera una película, sería la de la sobremesa del domingo.`),
+    J_(x.woL>=1,78,"wo",`Perdiste por WO: la única derrota en la que no fallaste ni una bola.`),
   ];
   if(k==="streak") return [
-    R.bag>=2&&[85,`${R.bag} roscos. Hay rivales que todavía buscan el juego.`],
-    x.stb>=1&&[70,`${pl(x.stb,"super tie-break","super tie-breaks")}. El invento que nos salva de un Isner–Mahut cada semana.`],
-    R.best>=3&&[60,`${R.best} seguidas. En esta liga, juntar tres partidos ya es una gesta logística.`],
+    J_(R.bag>=2,85,"panaderia",`${R.bag} roscos. Repartes más que una panadería un domingo por la mañana.`),
+    J_(R.bag>=1&&x.easy>=2,70,"reclamaciones",`Tus rivales salen de la pista pidiendo la hoja de reclamaciones.`),
+    J_(x.easy>=2,55,"parking",`Ganas tan rápido que el parking te sale gratis.`),
+    J_(R.bagL>=1,74,"albanil",`Te han endosado un 6-0. Ese día tuviste menos toque que un albañil con guantes de boxeo.`),
+    J_(x.stb>=2,80,"ambulancia",`Tus partidos deberían incluir ambulancia y seguro médico.`),
+    J_(x.stb===1,50,"cardiologo",`Un super tie-break y tu cardiólogo ya tiene la app instalada.`),
+    J_(R.rem>=1,75,"champions",`Remontas más que el Madrid en Champions.`),
+    J_(x.tight>=2,60,"perdon",`Pierdes por tan poco que el rival debería pedirte perdón.`),
+    J_(R.best>=3,45,"gesta",`${R.best} seguidas. En esta liga, juntar tres partidos ya es una gesta logística.`),
   ];
-  if(k==="match"&&x.match){ const r=result(x.match.m);
+  if(k==="match"&&x.match){ const r=result(x.match.m), m=x.match.m, won=x.match.won, paliza=!won&&isPaliza(m,x.id), o=op(m);
     return [
-      r.sets.some(s=>s.st)&&[85,`A super tie-break. La final de Roland Garros entre Alcaraz y Sinner duró 5 h 29; la tuya contra ${op(x.match.m)} pareció más.`],
-      x.match.won&&r.sets.every(s=>!s.st&&Math.min(s.a,s.b)<=1)&&[80,`Ese día ${op(x.match.m)} solo pudo mirar. Ni en la Chatrier.`],
-      !x.match.won&&isPaliza(x.match.m,x.id)&&[70,`Hay partidos que se recuerdan. Este, mejor no.`],
+      J_(paliza,85,"torrente",`Ese día tuviste menos elegancia que Torrente jugando en Wimbledon.`),
+      J_(!won&&(sv.noRefleja||0)>=1,90,"pedrerol",`Pierdes un partido y ya tienes más explicaciones que Pedrerol un lunes.`),
+      J_(!won&&sv.derecha,80,"derecha",`Tu derecha tiene más peligro para el público que para el rival.`),
+      J_(r.sets.some(z=>z.st),65,"ambulancia",`A super tie-break. Ese partido debería haber incluido ambulancia y seguro médico.`),
+      J_(won&&r.sets.every(z=>!z.st&&Math.min(z.a,z.b)<=1),80,"chatrier",`Ese día ${o} solo pudo mirar. Ni Nadal en la Chatrier.`),
+      J_(won&&x.upset&&x.upset.m.id===m.id&&x.upset.pe<.35,70,"leicester",`Nadie daba un duro por ti. Lo tuyo fue el Leicester ganando la Premier.`),
+      J_(won,30,"selfie",`${o} todavía no ha subido ninguna foto de ese partido. Por algo será.`),
+      J_(won,30,"cena2",`Ese día la cena la pagó ${o}. Y lo sabes.`),
+      J_(!won,30,"ducha",`Ese partido todavía lo repasas en la ducha.`),
     ]; }
-  if(k==="rivals"&&x.nemesis) return [
-    [50,`${P[x.nemesis].first} ya te tiene cogida la medida. En febrero, la revancha.`],
+  if(k==="rivals") return [
+    J_(x.nemesis,60,"pesadilla",`Contra ${x.nemesis?P[x.nemesis].first:""} juegas como en las pesadillas: corres, pero no avanzas.`),
+    J_(x.nemesis,60,"jefe",`${x.nemesis?P[x.nemesis].first:""} es tu jefe final: cada vez que te lo cruzas, pierdes una vida.`),
+    J_(x.nemesis,60,"examen",`Contra ${x.nemesis?P[x.nemesis].first:""} vas como a un examen de recuperación: sabes que vas a sufrir.`),
+    J_(x.fetiche&&!x.nemesis,55,"bolsillo",`A ${x.fetiche?P[x.fetiche].first:""} ya le podrías cobrar alquiler: vive en tu bolsillo.`),
+    J_(x.fetiche&&!x.nemesis,55,"cliente",`${x.fetiche?P[x.fetiche].first:""} ya es cliente fijo: viene, paga y se va.`),
   ];
+  if(k==="crowd"){ const acc=x.pred.n?x.pred.hits/x.pred.n:0; return [
+    J_(x.pred.n>=4&&acc>=.75,70,"apuestas",`Aciertas el ${Math.round(acc*100)}%. Con ese ojo, deja el tenis y monta una casa de apuestas.`),
+    J_(x.pred.n>=4&&acc<=.4,70,"moneda",`Aciertas el ${Math.round(acc*100)}%. Tirando una moneda irías mejor.`),
+  ]; }
   return [];
 }
-function pickJoke(c,used){ const ok=c.filter(Boolean).filter(([,t])=>!used.has(t)).sort((a,b)=>b[0]-a[0]); if(!ok.length) return ""; used.add(ok[0][1]); return ok[0][1]; }
+/* La de más peso que no repita referencia; a igualdad, una distinta para cada jugador */
+function pickJoke(c,used,seed){ const ok=c.filter(Boolean).filter(j=>!used.has(j.tag)).sort((a,b)=>(b.score+(hashStr(seed+b.tag)%7)/10)-(a.score+(hashStr(seed+a.tag)%7)/10)); if(!ok.length) return ""; if(ok[0].tag!=="base"&&ok[0].tag!=="t") used.add(ok[0].tag); return ok[0].text; }
 const quipHTML=t=>t?`<p class="rc-quip">${esc(t)}</p>`:"";
 
 /* ---------- Audio: preview oficial de 30 s ---------- */
@@ -445,13 +478,12 @@ function slides(id){
   const X=idaStats(), x=X[id], R=x.R, p=P[id], S2=SONGS[x.song], L=leagueStats();
   const pct=Math.round(100*PLAYERS.filter(q=>X[q.id].R.jf<R.jf).length/(PLAYERS.length-1));
   const nm=i=>esc(P[i].first);
-  const YJ=new Set(), yq=k=>quipHTML(pickJoke(jokesYo(k,x,L),YJ));
   const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);
   const DUR=1.8;   // más tiempo para leer; tocar a la derecha pasa a la siguiente   // el artista de tu canción no suena antes
   const add=(k,d,h,track)=>{ let tr=null, key=null;
     if(track===undefined){ key=pickTrack(k,x,L,used,usedArt); tr=key&&TR[key]; }
     out.push({k,d:d?Math.round(d*(k==="song"?1:k==="tease"?1.2:DUR)):0,h:h+(tr?nowPlaying(tr,hookFor(key,k,x,L)):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
-  const J=new Set(), lj=k=>quipHTML(pickJoke(jokesLiga[k](L),J));
+  const USED=new Set(), lj=k=>quipHTML(pickJoke(jokesLiga[k](L),USED,id)), yq=k=>quipHTML(pickJoke(jokesYo(k,x,L),USED,id));
   /* 1-5 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
@@ -506,9 +538,8 @@ function slides(id){
       <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id&&x.upset.pe<.35?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>${yq("match")}`); }
   }
   if(x.votes>=1||x.pred.n>=3){ const acc=x.pred.n?x.pred.hits/x.pred.n:0;
-    const cq=x.pred.n>=4&&acc>=.75?`Aciertas el ${Math.round(acc*100)}%. Si apostaras, ya tendrías palco en Wimbledon.`:x.pred.n>=4&&acc<=.4?`Aciertas el ${Math.round(acc*100)}%. Tirando una moneda irías mejor. No lo dejes.`:"";
     add("crowd",7500,`<h2 class="rc-h">La grada</h2>${x.votes?`<div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>`:""}
-    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:""}${quipHTML(cq)}`); }
+    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:""}${yq("crowd")}`); }
   add("tease",3800,`<h2 class="rc-big rc-tease">Toda temporada<br>tiene banda sonora.</h2><p class="rc-lead">Sube el volumen 🔊</p>`,null);
   add("song",29000,`<div class="rc-kick">Tu ida en una canción</div>
     <div class="rc-disc"><div class="rc-vinyl"><img class="rc-art" alt=""><span class="rc-lbl" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></span></div></div>
