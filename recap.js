@@ -190,7 +190,7 @@ function bgFor(k,x,L){
     case "liga": return ["september"];                                   // empezó en septiembre
     case "cifras": return "fiesta";
     case "honores": return L.late>=5?["porahi","amanecer"]:"fiesta";      // medio liga bailando por ahí
-    case "intro": return id==="alvaro"?["limbo","shaky"]:"nostalgia";     // el DJ entra con su música
+    case "intro": return "nostalgia";
     case "nums": case "none": return R.pg>=R.pp?"fiesta":"derrota";
     case "pos": return R.pos<=4?"fiesta":R.pos>=8?"derrota":"nostalgia";
     case "streak": return "racha";
@@ -205,7 +205,6 @@ function bgFor(k,x,L){
 }
 /* Elige la canción de una historia: fija si la broma lo pide; si no, del ánimo, distinta por jugador */
 function hookFor(key,k,x,L){
-  if(key==="limbo"&&x.id==="alvaro") return "Porque al DJ de la liga se le recibe con su música.";
   if(key==="abusadora"&&x.nemesis) return `Porque ${P[x.nemesis].first} te ha repasado sin piedad.`;
   if(key==="amigos"&&x.nemesis) return `¿Amigos? ${P[x.nemesis].first} no se acordó en la pista.`;
   if(key==="porahi"&&L.late) return `Porque con ${L.late} aplazados medio liga estaba bailando por ahí.`;
@@ -227,7 +226,6 @@ function pickTrack(k,x,L,used,usedArt){
 function altsFor(key){ const m=Object.entries(MOOD).find(([,v])=>v.includes(key)); return (m?m[1]:MOOD.fiesta).filter(z=>z!==key).slice(0,4).map(z=>TR[z].id); }
 
 /* ---------- La liga entera en la ida ---------- */
-const JUNIORS = CFG.JUNIORS || ["julian","tomas"];   // «comité junior»
 const WD = ["domingos","lunes","martes","miércoles","jueves","viernes","sábados"];
 function leagueStats(){
   return cached("recapLiga",()=>{
@@ -265,44 +263,48 @@ function leagueStats(){
   });
 }
 
-/* ---------- Bromas de la casa (editar aquí) ---------- */
-const LORE = {
-  alvaro:  "El DJ de la liga. Hoy la música la ponemos nosotros.",
-  eduardo: "Más duro que el pan de tres días. Veamos si los números también.",
-  joan:    "El Martillo. El frontón que desespera a media liga.",
-  pepe:    "Revés de Andy Murray y pura magia. Veamos si había truco.",
-  marc:    "Leyenda viva y patrocinador oficial de las cañas de después.",
-  julian:  "El Pollo. Esta vez no te has escapado: aquí tienes tu ida.",
-  carlos:  "El que deja la competición un mes cada semana… y nunca la deja.",
-  marcos:  "El Caudillo. Dicen que te dan un palo y ganas igual.",
-  pablo:   "Globos, cortadas y pesadillas de resaca para tus rivales.",
-  tomas:   "Comité Junior: mucho pelo y Vichy Catalan en vena.",
-};
+/* ---------- Bromas (salen de los números de cada uno, no de motes) ---------- */
+// Presentación: una frase según lo más llamativo de tu ida
+function introLine(x,L){
+  const R=x.R, late=L.lateBy[x.id]||0;
+  if(!R.pj) return "Tu ida ha sido como el modo avión: activado todo el rato.";
+  if(R.pos===1) return "Primero de la tabla. Ya puedes ponerte la clasificación de fondo de pantalla.";
+  if(R.pp===0&&R.pg>=2) return "Invicto. Ni una derrota. Esto no es una liga, es tu tráiler.";
+  if(R.pg===0) return "Lo importante es participar. Eso dicen. Vamos a ver los números igualmente.";
+  if(x.votes>=2) return "La grada te vota, la tabla te respeta. Veamos el resto.";
+  if(late>=4) return "Experto en el arte de «¿lo movemos a la semana que viene?».";
+  if(R.rem) return "Especialista en dar sustos y en volver cuando nadie te espera.";
+  if(R.pos<=4) return "Zona noble de la tabla y sin hacer mucho ruido. Así se hace.";
+  return "Ni arriba ni abajo: en el sitio perfecto para dar la sorpresa en la vuelta.";
+}
 function quip(k,x,L){
-  const id=x.id, R=x.R, me=n=>n===id, late=(L.lateBy[id]||0);
+  const id=x.id, R=x.R, late=(L.lateBy[id]||0);
   const Q=[];
   if(k==="nums"){
-    if(me("carlos")&&R.pj) Q.push(`Dijiste que lo dejabas un mes. ${R.pj} partidos después, aquí sigues.`);
-    else if(R.pp>=4) Q.push(`Has perdido más partidos que veces ha anunciado Rovira que deja de competir un mes. Y mira que son.`);
-    if(R.pg>=5) Q.push(me("marcos")?`Con raqueta o con palo: ${R.pg} victorias.`:`${R.pg} victorias. Ni Marcos Pich con un palo.`);
-    if(late>=2) Q.push(me("alvaro")?`${late} partidos aplazados: cambias de fecha como de canción en tus sesiones.`:`${late} partidos aplazados: cambias más de fecha que Álvaro de canción.`);
-    if(R.pj&&R.pj<=x.maxPj-3) Q.push(me("julian")?`Solo ${R.pj} partidos. ¿Otra vez castigado?`:`Has desaparecido más que Julián cuando se escapó de casa.`);
+    if(late>=4) Q.push(`${late} partidos aplazados. Ni Rodalies acumula tantos retrasos.`);
+    else if(late>=2) Q.push(`${late} partidos aplazados. Tu calendario tiene más versiones que una canción de Bad Bunny.`);
+    if(R.pj&&R.pj<=x.maxPj-3) Q.push(`Solo ${R.pj} ${R.pj===1?"partido":"partidos"}. Te hemos visto menos que a un AVE puntual.`);
+    if(R.pg>=3&&R.pp===0) Q.push(`${R.pg} de ${R.pg}. Si esto fuera Duolingo, ya tendrías la racha en llamas.`);
+    if(R.pj&&R.pg===0) Q.push(`0 victorias. Tranquilo: hasta el mejor Wi-Fi tiene días sin cobertura.`);
   }
   if(k==="streak"){
-    if(R.best>=3) Q.push(me("marc")?`${R.best} victorias seguidas. Esas cañas te las has ganado.`:`${R.best} seguidas: más rondas que una noche de cañas con Marc Huet.`);
-    if(x.stb>=2) Q.push(me("tomas")?`Tus super tie-breaks tienen más gas que tu Vichy.`:`${x.stb} super tie-breaks: más burbujas que el Vichy de Tomás.`);
-    if(R.bag>=1) Q.push(me("eduardo")?`Roscos más duros que el pan de tres días.`:`Repartir roscos: eso es más duro que el pan de tres días de Eduardo.`);
+    if(R.best>=3) Q.push(`${R.best} victorias seguidas. A este ritmo, Alcaraz te pide consejos.`);
+    if(R.bag>=2) Q.push(`${R.bag} roscos repartidos. Abres panadería los sábados por la mañana.`);
+    else if(R.bag===1) Q.push(`Un 6-0 en tu ida. Hay rivales que todavía lo están borrando de la galería.`);
+    if(R.rem) Q.push(`Perdiste el primer set y le diste la vuelta. Giro de guion digno de serie de Netflix.`);
+    if(x.stb>=2) Q.push(`${x.stb} super tie-breaks: más tensión que esperar el último tick azul en el WhatsApp.`);
   }
   if(k==="rivals"&&x.nemesis){
-    if(x.nemesis==="marcos") Q.push("Perder con Marcos no cuenta: juega bien hasta con un palo.");
-    else if(x.nemesis==="pablo") Q.push("Caer ante los globos de Pablo… eso escuece el doble.");
-    else if(x.nemesis==="joan") Q.push("Contra el frontón de Joan no se gana: se sobrevive.");
-    else if(x.nemesis==="marc") Q.push("Contra Marc Huet hay que ir con casco. Avisado estabas.");
+    const h=R.h2h[x.nemesis];
+    if(h&&h.l>=2) Q.push(`${P[x.nemesis].first} te tiene más estudiado que el algoritmo de TikTok.`);
+    else Q.push(`${P[x.nemesis].first} se ha ganado una mención especial en tu grupo de WhatsApp. De las malas.`);
   }
   if(k==="crowd"){
     const o=L.openBy[id]||0;
-    if(L.opener&&L.opener[0]===id&&o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces. Nadie más. Esto ya es amor.`);
-    else if(o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces${me("tomas")?" (una por cada Vichy, calculamos)":""}.`);
+    if(x.pred.n>=5&&x.pred.hits/x.pred.n>=.7) Q.push(`${x.pred.hits} de ${x.pred.n} pronósticos acertados. Las casas de apuestas ya te tienen fichado.`);
+    else if(!x.pred.n) Q.push(`Ni un pronóstico. Más misterioso que el algoritmo de Instagram.`);
+    if(L.opener&&L.opener[0]===id&&o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces. Tu tiempo de pantalla pide explicaciones.`);
+    else if(o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} ${o===1?"vez":"veces"}.`);
   }
   return Q.length?`<p class="rc-quip">${esc(Q[0])}</p>`:"";
 }
@@ -397,11 +399,11 @@ function slides(id){
   if(L.longest) aw.push(`<li><span class="rc-face sm rc-face-x">⏱</span><span><small>El partido más largo</small><b>${nm(L.longest.m.a)} – ${nm(L.longest.m.b)}</b> · ${L.longest.g} juegos</span></li>`);
   add("honores",10000,`<h2 class="rc-h">Méritos, honores y deshonores</h2><div class="rc-row">${hon.join("")}</div>
     <ul class="rc-awards">${aw.join("")}</ul>
-    <p class="rc-lead">${L.late>=10?"Con todo el honor del mundo: aquí aplazar es casi una disciplina olímpica.":L.late?"Aplazar también es parte del juego. Con honor.":"Ni un aplazamiento. ¿Seguro que esto es una liga de amigos?"}</p>`);
+    <p class="rc-lead">${L.late>=10?`${L.late} aplazados. Si aplazar fuera deporte olímpico, esta liga traía medalla.`:L.late?"Aplazar también es parte del juego. Con honor.":"Ni un aplazamiento. ¿Seguro que esto es una liga de amigos?"}</p>`);
   /* 4+ · Tu ida */
   add("intro",7500,`<div class="rc-kick">Y ahora, tú</div><h1 class="rc-big">${esc(p.first)}</h1>
     <div class="rc-hero">${face(id,"xl")}</div>
-    <p class="rc-lead">${esc(LORE[id]||p.bio||"")}</p>`);
+    <p class="rc-lead">${esc(introLine(x,L))}</p>`);
   if(!R.pj){
     add("none",7000,`<h2 class="rc-h">La ida, desde la grada</h2><div class="rc-num"><span data-count="0">0</span><small>partidos</small></div><p class="rc-lead">Te guardamos el sitio en la segunda vuelta.</p>${quip("nums",x,L)}`);
   } else {
