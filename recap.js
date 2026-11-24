@@ -301,8 +301,8 @@ function quip(k,x,L){
   }
   if(k==="crowd"){
     const o=L.openBy[id]||0;
-    if(L.opener&&L.opener[0]===id&&o) Q.push(`Has entrado en la app ${fmtN(o)} veces. Nadie más. Esto ya es amor.`);
-    else if(o) Q.push(`Has entrado en la app ${fmtN(o)} veces${me("tomas")?" (una por cada Vichy, calculamos)":""}.`);
+    if(L.opener&&L.opener[0]===id&&o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces. Nadie más. Esto ya es amor.`);
+    else if(o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces${me("tomas")?" (una por cada Vichy, calculamos)":""}.`);
   }
   return Q.length?`<p class="rc-quip">${esc(Q[0])}</p>`:"";
 }
@@ -393,7 +393,7 @@ function slides(id){
   if(L.wo) hon.push(`<div><b data-count="${L.wo}">0</b><small>${L.wo===1?"WO":"WO"}</small></div>`);
   const aw=[];
   if(L.lateKing) aw.push(`<li>${face(L.lateKing[0],"sm")}<span><small>Rey del aplazamiento</small><b>${nm(L.lateKing[0])}</b> · ${L.lateKing[1]} aplazados</span></li>`);
-  if(L.opener) aw.push(`<li>${face(L.opener[0],"sm")}<span><small>Adicto a la app</small><b>${nm(L.opener[0])}</b> · ${fmtN(L.opener[1])} entradas</span></li>`);
+  if(L.opener) aw.push(`<li>${face(L.opener[0],"sm")}<span><small>Adicto a la app</small><b>${nm(L.opener[0])}</b> · ${fmtN(L.opener[1])} entradas desde el 17/11</span></li>`);
   if(L.longest) aw.push(`<li><span class="rc-face sm rc-face-x">⏱</span><span><small>El partido más largo</small><b>${nm(L.longest.m.a)} – ${nm(L.longest.m.b)}</b> · ${L.longest.g} juegos</span></li>`);
   add("honores",10000,`<h2 class="rc-h">Méritos, honores y deshonores</h2><div class="rc-row">${hon.join("")}</div>
     <ul class="rc-awards">${aw.join("")}</ul>
