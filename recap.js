@@ -105,7 +105,9 @@ function idaStats(){
     const usedS=new Set(), song={};
     cand.forEach(c=>{ if(song[c.id]||usedS.has(c.k)) return; song[c.id]=c.k; usedS.add(c.k); });
     // Último recurso (muy improbable): se repite la canción neutra que encaje antes que poner una frase falsa
-    PLAYERS.forEach(p=>{ if(!song[p.id]) song[p.id]=["bonito","provenza","paso"].find(k=>SONGS[k].ok(out[p.id]))||"bonito"; });
+    const NEUTRAL=["bonito","paso","provenza","callaita","calma","kuduro","safaera","tusa","gasolina","despacito"];
+    PLAYERS.forEach(p=>{ if(song[p.id]) return; const ok=k=>!SONGS[k].ok||SONGS[k].ok(out[p.id]);
+      const k=NEUTRAL.find(k=>!usedS.has(k)&&ok(k))||NEUTRAL.find(ok)||"bonito"; song[p.id]=k; usedS.add(k); });
     PLAYERS.forEach(p=>out[p.id].song=song[p.id]);
     out.__total=idaM.length;
     return out;
@@ -248,7 +250,13 @@ function leagueStats(){
     L.moved=Object.values(per).reduce((s,n)=>s+Math.max(0,n-1),0);
     const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0]||null;
     L.lateKing=top(L.lateBy); L.day=top(L.days); L.hour=top(L.hours);
-    const O=Store.recapOpens||{}; L.opens=Math.max(O.total||0, +CFG.APP_OPENS||0);   // contador propio o Vercel Analytics (lo rellena una tarea el 26/12)
+    const O=Store.recapOpens||{}, U=CFG.APP_USAGE||null;
+    // Entradas: lo contado hasta U.hasta (Vercel + estimación de los días sin analítica) y desde ahí lo que diga Vercel
+    // (U.vercel, lo rellena la tarea del 26/12) o, mientras tanto, el ritmo medio por día
+    let est=0; if(U&&U.entradas){ const end=today()<RECAP_FROM?today():RECAP_FROM, d=Math.max(0,Math.round((Date.parse(end)-Date.parse(U.hasta))/864e5));
+      est=U.entradas+(U.vercel?+U.vercel:Math.round((+U.ritmo||0)*d)); }
+    L.opens=Math.max(O.total||0, +CFG.APP_OPENS||0, est);
+    L.minVisit=U&&+U.minVisita||0; L.appHours=L.minVisit?Math.round(L.opens*L.minVisit/60):0;
     const ob=Object.entries(O).filter(([k])=>P[k]); L.opener=ob.sort((a,b)=>b[1]-a[1])[0]||null; L.openBy=Object.fromEntries(ob);
     L.hoursOnCourt=Math.round(L.games*5/60);   // a ojo: unos 5 minutos por juego
     return L;
@@ -373,10 +381,10 @@ function slides(id){
   /* 1-3 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
-    <p class="rc-lead">Todo arrancó el 28 de septiembre. Primera vuelta cerrada: <b>${fmtN(L.played)}</b> partidos, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks${L.opens?`. Habéis entrado en la app <b>${fmtN(L.opens)}</b> veces`:""}. Esto ya no es una pachanga: es una liga.</p>`);
-  const big=[[L.played,"partidos jugados"],[L.games,"juegos disputados"],[L.hoursOnCourt,"horas en pista (a ojo)"],[L.opens,"entradas a la app"],[L.preds,"pronósticos"],[L.votes,"votos MVP"]].filter(([v])=>v>0).slice(0,6);
+    <p class="rc-lead">Todo arrancó el 28 de septiembre. Primera vuelta cerrada: <b>${fmtN(L.played)}</b> partidos, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks${L.opens?`. Habéis entrado en la app <b>${fmtN(L.opens)}</b> veces${L.appHours?` y habéis pasado unas <b>${fmtN(L.appHours)}</b> horas dentro`:""}`:""}. Esto ya no es una pachanga: es una liga.</p>`);
+  const big=[[L.played,"partidos jugados"],[L.games,"juegos disputados"],[L.hoursOnCourt,"horas en pista (a ojo)"],[L.opens,"entradas a la app"],[L.appHours,"horas en la app (a ojo)"],[L.preds,"pronósticos"],[L.votes,"votos MVP"]].filter(([v])=>v>0).slice(0,6);
   add("cifras",9000,`<h2 class="rc-h">La ida en cifras</h2><div class="rc-grid rc-grid3">${big.map(([v,l])=>`<div><b data-count="${v}">0</b><small>${l}</small></div>`).join("")}</div>
-    ${L.day?`<p class="rc-lead">Día favorito de la liga: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}.</p>`:""}`);
+    ${L.day?`<p class="rc-lead">Día favorito de la liga: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}.${L.minVisit?` Cada visita a la app dura de media unos <b>${fmtN(Math.round(L.minVisit))}</b> minutos.`:""}</p>`:""}`);
   const hon=[];
   hon.push(`<div><b data-count="${L.late}">0</b><small>partidos aplazados${L.latePending?` · ${L.latePending} aún por jugar`:""}</small></div>`);
   if(L.moved) hon.push(`<div><b data-count="${L.moved}">0</b><small>cambios de fecha</small></div>`);
@@ -471,7 +479,7 @@ function fitText(root){
     const widest=()=>Math.max(...[...h.querySelectorAll(".w")].map(w=>w.offsetWidth),0);
     while(widest()>max&&fs>22&&n++<30){ fs*=.94; h.style.fontSize=fs+"px"; } });
 }
-const FX=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];
+const FXS=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];   // no llamarlo FX: taparía el mapa de partidos
 async function openRecap(id){
   /* Cada uno solo ve el suyo (en modo prueba local se puede pedir otro para revisar) */
   id=(Store.local&&id)||Store.myPlayer||S.me; if(!P[id]) return;
@@ -483,7 +491,7 @@ async function openRecap(id){
   el.style.setProperty("--c",P[id].color);
   el.innerHTML=`<div class="rc-bars">${data.list.map(()=>`<i><b></b></i>`).join("")}</div>
     <button class="rc-x" data-rc-close aria-label="Cerrar">×</button><button class="rc-mute" data-rc-mute aria-label="Silenciar">${muted?"🔇":"🔊"}</button>
-    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k} ${FX[i%FX.length]}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-shape s1"></div><div class="rc-shape s2"></div>${tickerFor(s.k,id,data.x,data.song)}<div class="rc-in">${s.h}</div></section>`).join("")}</div>
+    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k} ${FXS[i%FXS.length]}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-shape s1"></div><div class="rc-shape s2"></div>${tickerFor(s.k,id,data.x,data.song)}<div class="rc-in">${s.h}</div></section>`).join("")}</div>
     <div class="rc-start"><div class="rc-in"><div class="rc-kick">Americana Legends Cup · Vol. 1</div><h1 class="rc-big">La primera vuelta ya suena</h1><p class="rc-lead">${esc(P[id].first)}: cada historia tiene su canción. Sube el volumen.</p><button class="btn ball" data-rc-go>Empezar 🎧</button></div></div>`;
   splitWords(el);
   document.body.appendChild(el); document.body.classList.add("rc-on");

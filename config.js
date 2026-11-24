@@ -26,6 +26,15 @@ window.LIGA_CONFIG = {
   RECAP_FROM: "2026-12-26",
   // Entradas a la app según Vercel Analytics (se rellena automáticamente el 26/12). 0 = usar solo el contador propio.
   APP_OPENS: 0,
+  // Uso de la app para el recap (24/11/2026):
+  // - entradas: 109 páginas vistas reales en Vercel del 15 al 24/11 + 283 estimadas del 13/10 (primeros pronósticos) al 14/11,
+  //   cuando aún no había analítica: el 13/10 como un día de anuncio (55, igual que el 18/11), la semana del 14 al 19/10
+  //   al doble del ritmo normal (12/día, la de más pronósticos) y del 20/10 al 14/11 al ritmo normal (6/día).
+  // - ritmo: media diaria de Vercel del 15 al 24/11 sin el día del anuncio de la agenda (54 / 9 días). Se usa para contar
+  //   los días después de «hasta» mientras «vercel» esté a 0.
+  // - vercel: páginas vistas en Vercel desde el día siguiente a «hasta» (lo rellena la tarea del 26/12).
+  // - minVisita: duración media de una visita según PostHog (7 sesiones medidas del 22 al 24/11; muestra pequeña).
+  APP_USAGE: { hasta: "2026-11-24", entradas: 392, ritmo: 6, vercel: 0, minVisita: 1.8 },
   // Únicas cuentas que pueden ver el recap antes de RECAP_FROM (enlace #recap-preview o 7 toques en el logo)
   RECAP_TESTERS: ["pepe"],
 
