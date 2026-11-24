@@ -263,14 +263,15 @@ function leagueStats(){
   });
 }
 
-/* ---------- Bromas (salen de los números de cada uno, no de motes) ---------- */
-// Presentación: una frase según lo más llamativo de tu ida
+/* ---------- Bromas (salen de los números de cada uno, no de motes) ----------
+   Cada situación tiene varias versiones; a cada jugador le toca una fija (según su id) para que no se repitan tanto. */
+const pick=(arr,id,k)=>arr[hashStr(id+":"+k)%arr.length];
 function introLine(x,L){
-  const R=x.R, late=L.lateBy[x.id]||0;
-  if(!R.pj) return "Tu ida ha sido como el modo avión: activado todo el rato.";
+  const R=x.R, id=x.id, late=L.lateBy[id]||0;
+  if(!R.pj) return pick(["Tu ida ha sido como el modo avión: activado todo el rato.","Has visto la ida desde la grada. Con palomitas, suponemos."],id,"i0");
   if(R.pos===1) return "Primero de la tabla. Ya puedes ponerte la clasificación de fondo de pantalla.";
-  if(R.pp===0&&R.pg>=2) return "Invicto. Ni una derrota. Esto no es una liga, es tu tráiler.";
-  if(R.pg===0) return "Lo importante es participar. Eso dicen. Vamos a ver los números igualmente.";
+  if(R.pp===0&&R.pg>=2) return pick(["Invicto. Ni una derrota. Esto no es una liga, es tu tráiler.","Ni una derrota. Tus rivales ya te han silenciado en Instagram."],id,"inv");
+  if(R.pg===0) return pick(["Lo importante es participar. Eso dicen. Vamos a ver los números igualmente.","Spoiler: esta historia mejora en la segunda temporada.","Hay idas que son para olvidar. Esta te la vamos a recordar con cariño."],id,"i00");
   if(x.votes>=2) return "La grada te vota, la tabla te respeta. Veamos el resto.";
   if(late>=4) return "Experto en el arte de «¿lo movemos a la semana que viene?».";
   if(R.rem) return "Especialista en dar sustos y en volver cuando nadie te espera.";
@@ -281,27 +282,27 @@ function quip(k,x,L){
   const id=x.id, R=x.R, late=(L.lateBy[id]||0);
   const Q=[];
   if(k==="nums"){
-    if(late>=4) Q.push(`${late} partidos aplazados. Ni Rodalies acumula tantos retrasos.`);
-    else if(late>=2) Q.push(`${late} partidos aplazados. Tu calendario tiene más versiones que una canción de Bad Bunny.`);
+    if(late>=4) Q.push(`${late} partidos aplazados. `+pick(["Ni Rodalies acumula tantos retrasos.","Si aplazar diera puntos, ibas líder.","Más «¿lo movemos?» que un grupo de WhatsApp organizando una cena.","Tu agenda tiene más cambios que el horario de verano.","Ni el Mundial de Clubes se aplazaba tanto."],id,"late"));
+    else if(late>=2) Q.push(`${late} partidos aplazados. `+pick(["Tu calendario tiene más remixes que una canción de Bad Bunny.","Cambias de fecha como quien cambia de fondo de pantalla."],id,"late2"));
     if(R.pj&&R.pj<=x.maxPj-3) Q.push(`Solo ${R.pj} ${R.pj===1?"partido":"partidos"}. Te hemos visto menos que a un AVE puntual.`);
     if(R.pg>=3&&R.pp===0) Q.push(`${R.pg} de ${R.pg}. Si esto fuera Duolingo, ya tendrías la racha en llamas.`);
-    if(R.pj&&R.pg===0) Q.push(`0 victorias. Tranquilo: hasta el mejor Wi-Fi tiene días sin cobertura.`);
+    if(R.pj&&R.pg===0) Q.push(pick(["0 victorias. Tranquilo: hasta el mejor Wi-Fi tiene días sin cobertura.","0 victorias. Pero ojo: en la vuelta nadie te ve venir."],id,"zero"));
   }
   if(k==="streak"){
-    if(R.best>=3) Q.push(`${R.best} victorias seguidas. A este ritmo, Alcaraz te pide consejos.`);
+    if(R.best>=3) Q.push(`${R.best} victorias seguidas. `+pick(["A este ritmo, Alcaraz te pide consejos.","Más en racha que tu racha de Duolingo."],id,"best"));
     if(R.bag>=2) Q.push(`${R.bag} roscos repartidos. Abres panadería los sábados por la mañana.`);
     else if(R.bag===1) Q.push(`Un 6-0 en tu ida. Hay rivales que todavía lo están borrando de la galería.`);
     if(R.rem) Q.push(`Perdiste el primer set y le diste la vuelta. Giro de guion digno de serie de Netflix.`);
-    if(x.stb>=2) Q.push(`${x.stb} super tie-breaks: más tensión que esperar el último tick azul en el WhatsApp.`);
+    if(x.stb>=2) Q.push(`${x.stb} super tie-breaks: más tensión que esperar el doble check azul en WhatsApp.`);
   }
   if(k==="rivals"&&x.nemesis){
-    const h=R.h2h[x.nemesis];
-    if(h&&h.l>=2) Q.push(`${P[x.nemesis].first} te tiene más estudiado que el algoritmo de TikTok.`);
-    else Q.push(`${P[x.nemesis].first} se ha ganado una mención especial en tu grupo de WhatsApp. De las malas.`);
+    const h=R.h2h[x.nemesis], n=P[x.nemesis].first;
+    if(h&&h.l>=2) Q.push(`${n} te tiene más estudiado que el algoritmo de TikTok.`);
+    else Q.push(pick([`${n} se ha ganado una mención especial en tu grupo de WhatsApp. De las malas.`,`${n} ya tiene sitio fijo en tu lista de «revancha pendiente».`,`${n} te ganó y lo sabe. Seguro que ya tiene la captura del resultado.`,`Con ${n} tienes una cuenta pendiente. Febrero, pista y sin excusas.`],id,"nem"));
   }
   if(k==="crowd"){
     const o=L.openBy[id]||0;
-    if(x.pred.n>=5&&x.pred.hits/x.pred.n>=.7) Q.push(`${x.pred.hits} de ${x.pred.n} pronósticos acertados. Las casas de apuestas ya te tienen fichado.`);
+    if(x.pred.n>=5&&x.pred.hits/x.pred.n>=.7) Q.push(`${x.pred.hits} de ${x.pred.n} pronósticos acertados. `+pick(["Las casas de apuestas ya te tienen fichado.","Si aciertas así la Primitiva, invitas tú."],id,"pred"));
     else if(!x.pred.n) Q.push(`Ni un pronóstico. Más misterioso que el algoritmo de Instagram.`);
     if(L.opener&&L.opener[0]===id&&o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} veces. Tu tiempo de pantalla pide explicaciones.`);
     else if(o) Q.push(`Desde el 17 de noviembre has entrado en la app ${fmtN(o)} ${o===1?"vez":"veces"}.`);
@@ -427,7 +428,7 @@ function slides(id){
       </div>${x.nemesis&&bgFor("rivals",x,L)[0]==="abusadora"?`<p class="rc-lead">${nm(x.nemesis)} te ha repasado: ${R.h2h[x.nemesis].w}–${R.h2h[x.nemesis].l}. Suena lo que tiene que sonar.</p>`:""}${quip("rivals",x,L)||`<p class="rc-lead">${x.nemesis&&x.fetiche?"A uno ya le tienes cogida la medida. Con el otro hay cuentas pendientes.":x.fetiche?"Nadie te ha cogido la medida. De momento.":"La vuelta es para ajustar cuentas."}</p>`}`);
     if(x.match){ const ml=matchLine(x.match.m,id); add("match",8000,`<h2 class="rc-h">${x.match.won?"El partido de tu ida":"El que más dolió"}</h2>
       <div class="rc-vs">${face(id)}<em>vs</em>${face(ml.op)}</div>
-      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>`); }
+      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id&&x.upset.pe<.45?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones según el Elo). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>`); }
   }
   add("crowd",7500,`<h2 class="rc-h">La grada</h2><div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>
     ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:`<p class="rc-lead">Ni un pronóstico. En la vuelta, mójate.</p>`}${quip("crowd",x,L)}`);
