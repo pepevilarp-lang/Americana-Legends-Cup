@@ -15,16 +15,20 @@ const IDA = 9;
 /* ---------- Canciones: cada jugador recibe una, sin repetir ---------- */
 const pl=(n,a,b)=>`${n} ${n===1?a:b}`;
 const SONGS = {
-  bichota:  {t:"BICHOTA",              a:"KAROL G",                       id:1560071918, why:x=>`Líder de la primera vuelta con ${x.R.pts} puntos. Aquí se hace lo que diga quien va primero.`},
-  silence:  {t:"The Sound of Silence", a:"Simon & Garfunkel",             id:192480260,  why:x=>`${x.R.pj} partidos, 0 victorias. Hay silencios que lo dicen todo… y una segunda vuelta para romperlo.`},
+  bichota:  {t:"BICHOTA",              a:"KAROL G",                       id:1560071918, why:x=>`Líder de la primera vuelta con ${x.R.pts} puntos. Aquí manda quien va primero, y lo sabe todo el grupo.`},
+  silence:  {t:"The Sound of Silence", a:"Simon & Garfunkel",             id:192480260,  why:x=>`${pl(x.R.pj,"partido","partidos")} y ninguna victoria. Hay silencios que lo dicen todo… y una vuelta entera para romperlo.`},
+  vacaciones:{t:"Me Fui de Vacaciones",a:"Bad Bunny",                     id:1622046237, ok:x=>x.R.pj<=1&&x.pend>=2, why:x=>`${x.R.pj?`Un partido jugado`:`Ningún partido jugado`} y ${pl(x.pend,"pendiente","pendientes")}. La liga en septiembre, tú en modo fuera de la oficina.`},
+  desaparecido:{t:"Desaparecido",      a:"Manu Chao",                     id:725493637,  ok:x=>x.woL>=1, why:x=>`${pl(x.woL,"WO","WO")} en contra. Tu rival te esperó en la pista… y la pista sigue esperando.`},
+  culpa:    {t:"Échame La Culpa",      a:"Luis Fonsi & Demi Lovato",      id:1447401618, ok:x=>!!x.refix, why:x=>`${x.refix.vs}: ${x.refix.n} fechas fijadas y el partido sin jugar. Échame la culpa… pero a medias.`},
+  despacito:{t:"Despacito",            a:"Luis Fonsi & Daddy Yankee",     id:1447401620, ok:x=>x.late>=2, why:x=>`${x.late} de tus partidos se fueron de su jornada. Tú juegas así: despacito, muy despacito.`},
   gasolina: {t:"Gasolina",             a:"Daddy Yankee",                  id:1786000124, ok:x=>x.R.best>=2, why:x=>`${x.R.best} victorias seguidas. Ese depósito no se vacía nunca.`},
+  calma:    {t:"Con Calma",            a:"Daddy Yankee & Snow",           id:1449106558, ok:x=>x.easy>=1, why:x=>x.R.jc<=x.R.pj*3?`${fmtN(x.R.jf)} juegos ganados y solo ${x.R.jc} cedidos. Ni Nadal en la Chatrier. Todo con calma.`:`${pl(x.easy,"victoria","victorias")} sin despeinarte${x.R.bag?` y ${x.R.bag} ${x.R.bag===1?"rosco":"roscos"} repartidos`:""}. Todo con calma.`},
   tusa:     {t:"Tusa",                 a:"KAROL G & Nicki Minaj",         id:1560072127, ok:x=>x.tight>=1, why:x=>`${pl(x.tight,"derrota","derrotas")} por la mínima. Tan cerca… y tan lejos. Esa tusa se cura en febrero.`},
   safaera:  {t:"Safaera",              a:"Bad Bunny, Jowell & Randy, Ñengo Flow", id:1500776935, ok:x=>x.stb>=1, why:x=>`${pl(x.stb,"super tie-break","super tie-breaks")}. Tus partidos cambian de ritmo cada dos minutos y la grada lo agradece.`},
-  calma:    {t:"Con Calma",            a:"Daddy Yankee & Snow",           id:1449106558, ok:x=>x.easy>=1, why:x=>`${pl(x.easy,"victoria","victorias")} sin despeinarte${x.R.bag?` y ${x.R.bag} ${x.R.bag===1?"rosco":"roscos"} repartidos`:""}. Todo con calma.`},
-  despacito:{t:"Despacito",            a:"Luis Fonsi & Daddy Yankee",     id:1447401620, ok:x=>x.R.rem>=1||(x.firstLost&&x.R.pg>x.R.pp), why:x=>x.R.rem?`${pl(x.R.rem,"remontada","remontadas")} después de perder el primer set. Despacito, pero siempre llegas.`:`Empezaste perdiendo y acabas la ida en positivo. Despacito, pero llegas.`},
-  kuduro:   {t:"Danza Kuduro",         a:"Don Omar & Lucenzo",            id:1440636498, ok:x=>x.R.pj>0&&x.R.pj===x.maxPj, why:x=>`${x.R.pj} partidos: nadie ha pisado más la pista que tú. No paras quieto.`},
-  provenza: {t:"PROVENZA",             a:"KAROL G",                       id:1619425410, ok:x=>x.R.pj<=x.maxPj-2, why:x=>x.R.pj?`Solo ${x.R.pj} ${x.R.pj===1?"partido":"partidos"} en toda la ida. ¿Estabas de vacaciones?`:`Ni un partido en la ida. ¿Estabas de vacaciones?`},
-  callaita: {t:"Callaita",             a:"Bad Bunny & Tainy",             id:1622046245, ok:x=>x.R.pj>0&&x.R.pos<=4&&x.votes<=1, why:x=>`${x.R.pos}.º de la tabla y casi nadie te vota MVP. Sin hacer ruido, pero ahí arriba.`},
+  levanto:  {t:"Ella Me Levantó",      a:"Daddy Yankee",                  id:1786000517, ok:x=>x.R.rem>=1, why:x=>`${pl(x.R.rem,"remontada","remontadas")} después de perder el primer set. Te tumban y te levantas.`},
+  resistire:{t:"Resistiré",            a:"Dúo Dinámico",                  id:292365929,  ok:x=>x.R.pp>=2&&x.R.pp>x.R.pg, why:x=>`${x.R.pg}–${x.R.pp} y sigues pidiendo pista. Eso, en esta liga, es de héroes.`},
+  kuduro:   {t:"Danza Kuduro",         a:"Don Omar & Lucenzo",            id:1440636498, ok:x=>x.R.pj>0&&x.R.pj===x.maxPj, why:x=>`${x.R.pj} partidos: nadie ha pisado más la pista que tú. En una liga de aplazados, eso es oro.`},
+  callaita: {t:"Callaita",             a:"Bad Bunny & Tainy",             id:1622046245, ok:x=>x.R.pj>0&&x.R.pos<=4&&x.votes<=1, why:x=>`${x.R.pos}.º de la tabla y casi nadie habla de ti. Sin hacer ruido, pero ahí arriba.`},
   ojitos:   {t:"Ojitos Lindos",        a:"Bad Bunny & Bomba Estéreo",     id:1622045962, why:x=>`${x.votes} votos MVP: nadie ha recibido más. La grada solo tiene ojos para ti.`},
   titi:     {t:"Tití Me Preguntó",     a:"Bad Bunny",                     id:1622045635, why:x=>`El mejor pronosticador de la ida: ${x.pred.hits} de ${x.pred.n} aciertos. Todos te preguntan quién gana.`},
   losiento: {t:"Lo Siento BB:/",       a:"Tainy, Bad Bunny & Julieta Venegas", id:1586673104, ok:x=>x.R.pj>0&&x.R.pos>=8, why:x=>`Cierras la ida ${x.R.pos}.º. Lo siento, pero la segunda vuelta te debe una.`},
@@ -63,6 +67,12 @@ function idaStats(){
         if(!won&&r.sa+r.sb===3) x.tight++; const conc=me==="a"?r.gb:r.ga; if(won&&r.sa+r.sb===2&&conc<=4) x.easy++; });
       x.tight+=R.tbL;
       x.firstLost=R.form[0]==="L";
+      // Plazos: partidos tuyos fuera de su jornada (jugados tarde o aún sin jugar con la jornada cerrada)
+      x.late=0; x.pend=0; x.woL=0; x.woW=0; const t0=today();
+      FIXTURE.filter(f=>f.j<=IDA&&(f.a===p.id||f.b===p.id)).forEach(f=>{ const m=getMatch(f.id), r=result(m), end=JORNADAS[f.j-1][1];
+        if(!r){ if(end<t0){ x.pend++; x.late++; } return; }
+        const pd=playedOn(m); if(pd&&pd>end) x.late++;
+        if(r.wo){ const me=f.a===p.id?"a":"b"; r.w===me?x.woW++:x.woL++; } });
       // Rival fetiche y némesis
       const h=Object.entries(R.h2h);
       const fet=h.filter(([,v])=>v.w>0).sort((a,b)=>(b[1].w-b[1].l)-(a[1].w-a[1].l)||b[1].pts-a[1].pts)[0];
@@ -80,32 +90,41 @@ function idaStats(){
     // Más/menos partidos, más votos, mejor pronosticador
     const pjs=PLAYERS.map(p=>by[p.id].pj), maxPj=Math.max(...pjs), minPj=Math.min(...pjs);
     const maxVotes=Math.max(0,...Object.values(votes));
-    PLAYERS.forEach(p=>out[p.id].maxPj=maxPj);
+    const maxStb=Math.max(0,...PLAYERS.map(p=>out[p.id].stb));
+    PLAYERS.forEach(p=>{ out[p.id].maxPj=maxPj; out[p.id].maxStb=maxStb; });
     const bestPred=Object.entries(pred).filter(([,v])=>v.n>=5).sort((a,b)=>(b[1].hits+b[1].exact*2)/b[1].n-(a[1].hits+a[1].exact*2)/a[1].n)[0];
+    PLAYERS.forEach(p=>{ out[p.id].maxVotes=maxVotes; out[p.id].isOracle=!!(bestPred&&bestPred[0]===p.id); });
     // Reparto de canciones: puntuación por perfil, la más alta se queda la canción
     const cand=[];
     PLAYERS.forEach(p=>{ const x=out[p.id], R=x.R, add=(k,s)=>{ if(s>0) cand.push({id:p.id,k,s}); };
-      add("silence", R.pj>0&&R.pg===0?1000:0);
-      add("bichota", R.pj>0&&R.pos===1?900:0);
+      add("silence", R.pj>0&&R.pg===0&&R.pp>=2?1000:0);
+      add("bichota", R.pj>=2&&R.pos===1?900:0);
+      add("vacaciones", R.pj<=1&&x.pend>=2?600+x.pend*30:0);
+      add("desaparecido", x.woL>=1?560+x.woL*40:0);
       add("losiento", R.pg>0&&R.pos===PLAYERS.length?500:0);
-      add("provenza", maxPj-R.pj>=3&&R.pj===minPj?150+(maxPj-R.pj)*20:0);
+      add("calma", x.easy>=2&&R.jc<=R.pj*3?300+x.easy*20:0);   // arrasando: casi sin ceder juegos
+      add("despacito", x.late>=3?150+x.late*30:0);
       add("ojitos", x.votes>=2&&x.votes===maxVotes?130+x.votes*10:0);
       add("titi", bestPred&&bestPred[0]===p.id?125:0);
       add("gasolina", R.best>=3?100+R.best*40:0);
-      add("despacito", (R.rem?90+R.rem*40:0)+(x.firstLost&&R.pg>R.pp?60:0));
+      add("levanto", R.rem?90+R.rem*40:0);
       add("safaera", x.stb>=2?80+x.stb*35:0);
       add("tusa", x.tight>=2?80+x.tight*35:0);
+      add("resistire", R.pp>=3&&R.pp>R.pg?85+R.pp*10:0);
       add("callaita", R.pos<=3&&R.pos>1&&x.votes<=1&&R.pj>0?110:0);
       add("calma", x.easy>=2?70+x.easy*25+R.bag*10:0);
       add("kuduro", R.pj===maxPj&&R.pj>=4?60+R.pj*5:0);
+      add("despacito", x.late>=2?55+x.late*10:0);
       add("paso", R.pp>R.pg&&R.pos>=6?60+(R.pp-R.pg)*10:0);
       Object.entries(SONGS).forEach(([k,S])=>{ if(S.ok&&S.ok(x)) add(k,1); });   // comodines: solo si la frase es cierta
     });
+    const LF=leagueStats().mostFixed;
+    if(LF&&!LF.played) [LF.m.a,LF.m.b].forEach(id=>{ out[id].refix={vs:vs(LF.m),n:LF.n}; cand.push({id,k:"culpa",s:420+LF.n*20}); });
     cand.sort((a,b)=>b.s-a.s||a.id.localeCompare(b.id));
     const usedS=new Set(), song={};
     cand.forEach(c=>{ if(song[c.id]||usedS.has(c.k)) return; song[c.id]=c.k; usedS.add(c.k); });
     // Último recurso (muy improbable): se repite la canción neutra que encaje antes que poner una frase falsa
-    PLAYERS.forEach(p=>{ if(!song[p.id]) song[p.id]=["bonito","provenza","paso"].find(k=>SONGS[k].ok(out[p.id]))||"bonito"; });
+    PLAYERS.forEach(p=>{ if(!song[p.id]) song[p.id]=["bonito","vacaciones","paso","despacito"].find(k=>SONGS[k].ok(out[p.id]))||(out[p.id].R.pj?"bonito":"vacaciones"); });
     PLAYERS.forEach(p=>out[p.id].song=song[p.id]);
     out.__total=idaM.length;
     return out;
@@ -165,15 +184,17 @@ const TR = {
   megustas: {t:"Me Gustas Tú",         a:"Manu Chao",                id:726124491},
   bonito:   {t:"Bonito",               a:"Jarabe de Palo",           id:306349246},
   granoche: {t:"Mi Gran Noche",        a:"Raphael",                  id:734819808},
+  hoynome:  {t:"Hoy No Me Puedo Levantar", a:"Mecano",               id:1559885440},
+  quedo:    {t:"Me Quedo Contigo",     a:"Los Chunguitos",           id:691914430},
 };
-const HOOK = {"september": "Porque todo arrancó un 28 de septiembre.","migente": "Porque esto va de mi gente: 10 amigos y una liga.","amanecer": "Porque hay partidos que se aplazan hasta el amanecer.","porahi": "Porque, con tanto aplazamiento, medio liga estaba bailando por ahí.","vivir": "Porque esta liga se vive. Y tú la vives así.","limbo": "Porque hay quien juega en otra dimensión.","shaky": "Porque estos números hacen temblar a cualquiera.","inmyhead": "Porque esas derrotas siguen en tu cabeza.","bici": "Porque la tabla sube y baja como una bicicleta.","perdon": "Porque hay temporadas que piden perdón.","dura": "Porque así de dura ha sido tu ida.","culpa": "Porque a alguien hay que echarle la culpa.","amigos": "¿Amigos? En la pista no hay amigos.","abusadora": "Porque hay rivales que abusan sin piedad.","pajaritos": "Porque ese día te pintaron pajaritos.","bailando": "Porque ese día bailaste a tu rival.","gozadera": "Porque la grada es una gozadera.","corazon": "Gracias, de corazón.","livin": "Porque esta liga es la vida loca.","mordidita": "Porque cada partido deja su mordidita.","ventepaca": "Vente pa' cá, que esto no ha acabado.","subeme": "Súbele el volumen a estos números.","bailamos": "Porque en la pista bailamos todos.","chantaje": "Porque contra algunos rivales todo vale.","tortura": "Porque hay partidos que son una tortura.","hips": "Porque los números no mienten.","loca": "Porque esta ida ha sido una locura.","partio": "Porque hay derrotas que te dejan el corazón partío.","rakata": "Porque ganaste a ritmo de rakata.","levanto": "Porque esta liga te ha levantado.","daledon": "Porque había que darle. Y le diste.","salio": "Porque al final siempre sale el sol.","ellayyo": "Porque algunas rivalidades son cosa de dos.","obsesion": "Porque esa derrota ya es una obsesión.","propuesta": "Porque la revancha es una propuesta indecente.","travesuras": "Porque en la pista hiciste tus travesuras.","felices": "Porque aquí cabemos todos: felices los diez.","hawai": "Porque arriba de la tabla se está como en Hawái.","sixam": "Porque hay partidos que parece que acaban a las 6 AM.","ayvamos": "¡Ay, vamos! Que esto sigue.","ginza": "Porque esta grada lo pide.","calma": "Porque todo, con calma.","taxi": "Porque esta racha no la para ni un taxi.","camisa": "Porque hay días de camisa negra.","adios": "Porque a Dios le pides una segunda vuelta así.","mayores": "Porque esto ya es cosa de mayores.","sincontrato": "Porque aquí se juega sin contrato y con orgullo.","lomalo": "Porque lo malo también se celebra.","megustas": "Porque esta liga, sencillamente, nos gusta.","bonito": "Porque, al final, todo te parece bonito.","granoche": "Porque esta primera vuelta ha sido una gran noche."};
+const HOOK = {"september": "Porque todo arrancó un 28 de septiembre.","migente": "Porque esto va de mi gente: 10 amigos y una liga.","amanecer": "Porque hay partidos que se aplazan hasta el amanecer.","porahi": "Porque, con tanto aplazamiento, medio liga estaba bailando por ahí.","vivir": "Porque esta liga se vive. Y tú la vives así.","limbo": "Porque hay quien juega en otra dimensión.","shaky": "Porque estos números hacen temblar a cualquiera.","inmyhead": "Porque esas derrotas siguen en tu cabeza.","bici": "Porque la tabla sube y baja como una bicicleta.","perdon": "Porque hay temporadas que piden perdón.","dura": "Porque así de dura ha sido tu ida.","culpa": "Porque a alguien hay que echarle la culpa.","amigos": "¿Amigos? En la pista no hay amigos.","abusadora": "Porque hay rivales que abusan sin piedad.","pajaritos": "Porque ese día te pintaron pajaritos.","bailando": "Porque ese día bailaste a tu rival.","gozadera": "Porque la grada es una gozadera.","corazon": "Gracias, de corazón.","livin": "Porque esta liga es la vida loca.","mordidita": "Porque cada partido deja su mordidita.","ventepaca": "Vente pa' cá, que esto no ha acabado.","subeme": "Súbele el volumen a estos números.","bailamos": "Porque en la pista bailamos todos.","chantaje": "Porque contra algunos rivales todo vale.","tortura": "Porque hay partidos que son una tortura.","hips": "Porque los números no mienten.","loca": "Porque esta ida ha sido una locura.","partio": "Porque hay derrotas que te dejan el corazón partío.","rakata": "Porque ganaste a ritmo de rakata.","levanto": "Porque esta liga te ha levantado.","daledon": "Porque había que darle. Y le diste.","salio": "Porque al final siempre sale el sol.","ellayyo": "Porque algunas rivalidades son cosa de dos.","obsesion": "Porque esa derrota ya es una obsesión.","propuesta": "Porque la revancha es una propuesta indecente.","travesuras": "Porque en la pista hiciste tus travesuras.","felices": "Porque aquí cabemos todos: felices los diez.","hawai": "Porque arriba de la tabla se está como en Hawái.","sixam": "Porque hay partidos que parece que acaban a las 6 AM.","ayvamos": "¡Ay, vamos! Que esto sigue.","ginza": "Porque esta grada lo pide.","calma": "Porque todo, con calma.","taxi": "Porque esta racha no la para ni un taxi.","camisa": "Porque hay días de camisa negra.","adios": "Porque a Dios le pides una segunda vuelta así.","mayores": "Porque esto ya es cosa de mayores.","sincontrato": "Porque aquí se juega sin contrato y con orgullo.","lomalo": "Porque lo malo también se celebra.","megustas": "Porque esta liga, sencillamente, nos gusta.","bonito": "Porque, al final, todo te parece bonito.","granoche": "Porque esta primera vuelta ha sido una gran noche.","hoynome": "Porque los pronósticos y los votos dejaron de levantarse.","quedo": "Porque, con todo, me quedo con esta liga."};
 /* Ánimos: cada historia tira de uno; a cada jugador le tocan canciones distintas y sin repetir artista */
 const MOOD = {
   fiesta:   ["migente","gozadera","bailando","vivir","limbo","shaky","livin","mordidita","ventepaca","subeme","bailamos","hips","loca","levanto","daledon","salio","travesuras","felices","hawai","sixam","ayvamos","ginza","calma","taxi","camisa","mayores","lomalo","bici","rakata"],
   derrota:  ["perdon","inmyhead","partio","tortura","obsesion","ellayyo","propuesta","adios","amanecer","sincontrato","pajaritos"],
   rival:    ["culpa","chantaje","tortura","rakata","ellayyo","propuesta"],
   racha:    ["dura","rakata","levanto","limbo","daledon","salio","shaky","taxi","sixam"],
-  nostalgia:["corazon","granoche","bonito","megustas","adios","vivir","livin","bailamos","bici","camisa"],
+  nostalgia:["corazon","granoche","quedo","bonito","megustas","adios","vivir","livin","bailamos","bici","camisa"],
 };
 const artistKey=a=>a.toLowerCase().split(/\s*(?:&|,|feat\.)\s*/)[0].trim();
 const hashStr=str=>{ let h=2166136261; for(const c of str){ h^=c.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
@@ -185,8 +206,10 @@ function bgFor(k,x,L){
   switch(k){
     case "liga": return ["september"];                                   // empezó en septiembre
     case "cifras": return "fiesta";
-    case "honores": return L.late>=5?["porahi","amanecer"]:"fiesta";      // medio liga bailando por ahí
-    case "intro": return id==="alvaro"?["limbo","shaky"]:"nostalgia";     // el DJ entra con su música
+    case "plazos": return L.played&&L.onTime/L.played<.5?["amanecer","sixam"]:"fiesta";   // partidos que acaban jugándose «hasta el amanecer»
+    case "honores": return L.mostFixed&&!L.mostFixed.played?["culpa","porahi"]:L.late>=5?["porahi","amanecer"]:"fiesta";   // a alguien hay que echarle la culpa
+    case "fuera": return ["hoynome","subeme"];
+    case "intro": return "nostalgia";
     case "nums": case "none": return R.pg>=R.pp?"fiesta":"derrota";
     case "pos": return R.pos<=4?"fiesta":R.pos>=8?"derrota":"nostalgia";
     case "streak": return "racha";
@@ -201,10 +224,11 @@ function bgFor(k,x,L){
 }
 /* Elige la canción de una historia: fija si la broma lo pide; si no, del ánimo, distinta por jugador */
 function hookFor(key,k,x,L){
-  if(key==="limbo"&&x.id==="alvaro") return "Porque al DJ de la liga se le recibe con su música.";
   if(key==="abusadora"&&x.nemesis) return `Porque ${P[x.nemesis].first} te ha repasado sin piedad.`;
   if(key==="amigos"&&x.nemesis) return `¿Amigos? ${P[x.nemesis].first} no se acordó en la pista.`;
-  if(key==="porahi"&&L.late) return `Porque con ${L.late} aplazados medio liga estaba bailando por ahí.`;
+  if(key==="porahi"&&L.late) return `Porque con ${L.late} partidos fuera de plazo, media liga estaba bailando por ahí.`;
+  if(key==="amanecer"&&k==="plazos") return `Porque aquí los partidos se juegan… cuando se juegan.`;
+  if(key==="culpa"&&k==="honores"&&L.mostFixed) return `Porque de ${vs(L.mostFixed.m)} alguien tendrá la culpa.`;
   if(key==="pajaritos"&&x.match) return `Porque contra ${P[x.match.m.a===x.id?x.match.m.b:x.match.m.a].first} te pintaron pajaritos.`;
   if(key==="bailando"&&x.match&&x.match.won) return `Porque ese día bailaste a ${P[x.match.m.a===x.id?x.match.m.b:x.match.m.a].first}.`;
   return HOOK[key]||"";
@@ -225,77 +249,133 @@ function altsFor(key){ const m=Object.entries(MOOD).find(([,v])=>v.includes(key)
 /* ---------- La liga entera en la ida ---------- */
 const JUNIORS = CFG.JUNIORS || ["julian","tomas"];   // «comité junior»
 const WD = ["domingos","lunes","martes","miércoles","jueves","viernes","sábados"];
+const dayDiff=(a,b)=>{ const P_=s=>{ const[y,m,d]=s.split("-").map(Number); return Date.UTC(y,m-1,d); }; return Math.round((P_(b)-P_(a))/864e5); };
+const ymdOf=t=>{ const d=new Date(t); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const MES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const fmtDia=s=>{ const[,m,d]=s.split("-").map(Number); return `${d} de ${MES[m-1]}`; };
+/* Día en que se jugó: la fecha fijada; si no hay (o es posterior), el día en que se apuntó el resultado */
+function playedOn(m){ const u=m.updated?ymdOf(m.updated):null; if(m.date&&(!u||m.date<=u)) return m.date; return u||m.date||null; }
 function leagueStats(){
   return cached("recapLiga",()=>{
     const fx=FIXTURE.filter(f=>f.j<=IDA), t0=today();
-    const L={played:0,games:0,sets:0,stb:0,wo:0,late:0,latePending:0,lateBy:{},longest:null,days:{},hours:{},preds:0,votes:0,dates:0,moved:0,live:0};
+    const L={total:fx.length,played:0,games:0,sets:0,stb:0,wo:0,late:0,latePending:0,lateBy:{},onTime:0,lateDays:[],worst:null,oldest:null,longest:null,days:{},hours:{},courts:{},bags:0,
+      preds:0,predDays:{},predLast:null,votes:0,voteLast:null,dates:0,fixed:{},mostFixed:null,live:0,excuse:null,blame:{}};
     fx.forEach(f=>{ const m=getMatch(f.id), r=result(m), end=JORNADAS[f.j-1][1];
-      const late=r ? (m.date&&m.date>end) : (end<t0);
+      const pd=r?playedOn(m):null, late=r ? (!!pd&&pd>end) : (end<t0);
       if(late){ L.late++; if(!r) L.latePending++; [m.a,m.b].forEach(p=>L.lateBy[p]=(L.lateBy[p]||0)+1); }
-      if(!r) return; L.played++;
+      if(!r){ if(end<t0){ const d=dayDiff(end,t0); if(!L.oldest||d>L.oldest.d) L.oldest={m,d}; } return; }
+      L.played++;
+      if(!late) L.onTime++; else if(pd){ const d=dayDiff(end,pd); L.lateDays.push(d); if(!L.worst||d>L.worst.d) L.worst={m,d}; }
       if(r.wo){ L.wo++; return; }
       L.sets+=r.sets.length; L.stb+=r.sets.filter(s=>s.st).length;
+      L.bags+=r.sets.filter(s=>!s.st&&Math.min(s.a,s.b)===0&&Math.max(s.a,s.b)===6).length;
       const g=r.sets.reduce((s,z)=>s+(z.st?0:z.a+z.b),0); L.games+=g;
       if(!L.longest||g>L.longest.g) L.longest={m,g};
       if(m.date){ const[y,mo,d]=m.date.split("-").map(Number); const w=new Date(y,mo-1,d).getDay(); L.days[w]=(L.days[w]||0)+1; }
       if(m.time){ const h=m.time.slice(0,2); L.hours[h]=(L.hours[h]||0)+1; }
+      const c=String(m.court||"").replace(/^pista\s*/i,"").trim(); if(c) L.courts[c]=(L.courts[c]||0)+1;
     });
-    Object.values(Store.preds).forEach(p=>{ const f=FX[p.m]; if(f&&f.j<=IDA) L.preds++; });
-    Object.values(Store.votes).forEach(v=>{ if(v.j<=IDA) L.votes++; });
-    const per={}; Object.values(Store.log||{}).forEach(e=>{ if(!e||!e.txt) return;
-      if(/^fijó /.test(e.txt)){ L.dates++; const k=e.txt.split(" para ")[0]; per[k]=(per[k]||0)+1; }
+    L.avgLate=L.lateDays.length?Math.round(L.lateDays.reduce((s,n)=>s+n,0)/L.lateDays.length):0;
+    // Pronósticos y votos: cuántos y cuándo se dejaron de hacer
+    Object.values(Store.preds).forEach(p=>{ const f=FX[p.m]; if(!f||f.j>IDA) return; L.preds++; if(p.t){ const d=ymdOf(p.t); L.predDays[d]=(L.predDays[d]||0)+1; if(!L.predLast||d>L.predLast) L.predLast=d; } });
+    const pd=Object.keys(L.predDays).sort(); L.predFirst=pd[0]||null;
+    L.predFirstWeek=pd.filter(d=>L.predFirst&&dayDiff(L.predFirst,d)<7).reduce((s,d)=>s+L.predDays[d],0);
+    Object.values(Store.votes).forEach(v=>{ if(v.j>IDA) return; L.votes++; if(v.t){ const d=ymdOf(v.t); if(!L.voteLast||d>L.voteLast) L.voteLast=d; } });
+    // Registro: cuántas veces se ha fijado la fecha de cada partido
+    Object.values(Store.log||{}).forEach(e=>{ if(!e||!e.txt) return;
+      if(e.k==="date"||/^fijó /.test(e.txt)){ L.dates++; const k=e.m||e.txt.split(" para ")[0]; L.fixed[k]=(L.fixed[k]||0)+1; }
       if(/^empezó el marcador en directo/.test(e.txt)) L.live++; });
-    L.moved=Object.values(per).reduce((s,n)=>s+Math.max(0,n-1),0);
-    const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0]||null;
-    L.lateKing=top(L.lateBy); L.day=top(L.days); L.hour=top(L.hours);
-    const O=Store.recapOpens||{}; L.opens=Math.max(O.total||0, +CFG.APP_OPENS||0);   // contador propio o Vercel Analytics (lo rellena una tarea el 26/12)
-    const ob=Object.entries(O).filter(([k])=>P[k]); L.opener=ob.sort((a,b)=>b[1]-a[1])[0]||null; L.openBy=Object.fromEntries(ob);
+    const mf=Object.entries(L.fixed).filter(([k])=>FX[k]&&FX[k].j<=IDA).sort((a,b)=>b[1]-a[1])[0];
+    if(mf&&mf[1]>=3){ const m=getMatch(mf[0]); L.mostFixed={m,n:mf[1],played:!!result(m)}; }
+    L.moved=Object.values(L.fixed).reduce((s,n)=>s+Math.max(0,n-1),0);
+    // Encuestas de después del partido: la condición que más sale en las derrotas
+    const ex={}; Object.values(Store.recapSurveys||{}).forEach(st=>{ Object.entries((st&&st.c5)||{}).forEach(([k,v])=>{ if(k==="Perfectas") return; const e=ex[k]||(ex[k]={l:0,w:0}); e.l+=v.l||0; e.w+=v.w||0; }); });
+    const top=Object.entries(ex).sort((a,b)=>b[1].l-a[1].l)[0]; if(top&&top[1].l>=2) L.excuse={k:top[0],l:top[1].l,w:top[1].w};
+    const topOf=o=>Object.entries(o).sort((a,b)=>b[1]-a[1])[0]||null;
+    L.lateKing=topOf(L.lateBy); L.day=topOf(L.days); L.hour=topOf(L.hours); L.court=topOf(L.courts);
+    if(L.lateKing&&L.lateKing[1]<2) L.lateKing=null;
     L.hoursOnCourt=Math.round(L.games*5/60);   // a ojo: unos 5 minutos por juego
+    L.X=window.RECAP_DATA||{};
     return L;
   });
 }
 
-/* ---------- Bromas de la casa (editar aquí) ---------- */
-const LORE = {
-  alvaro:  "El DJ de la liga. Hoy la música la ponemos nosotros.",
-  eduardo: "Más duro que el pan de tres días. Veamos si los números también.",
-  joan:    "El Martillo. El frontón que desespera a media liga.",
-  pepe:    "Revés de Andy Murray y pura magia. Veamos si había truco.",
-  marc:    "Leyenda viva y patrocinador oficial de las cañas de después.",
-  julian:  "El Pollo. Esta vez no te has escapado: aquí tienes tu ida.",
-  carlos:  "El que deja la competición un mes cada semana… y nunca la deja.",
-  marcos:  "El Caudillo. Dicen que te dan un palo y ganas igual.",
-  pablo:   "Globos, cortadas y pesadillas de resaca para tus rivales.",
-  tomas:   "Comité Junior: mucho pelo y Vichy Catalan en vena.",
+/* ---------- Bromas ----------
+   Cada broma va atada a un dato y solo sale si ese dato es cierto. Referencias de fondo (comprobadas):
+   - Rodalies: los trenes nuevos se esperaban en 2025 y ahora llegan en primavera de 2027.
+   - Presupuestos Generales: los de 2023, prorrogados en 2024, 2025 y 2026.
+   - Isner–Mahut, Wimbledon 2010: 11 h 05 y 183 juegos. Final de Roland Garros 2025, Alcaraz–Sinner: 5 h 29.
+   - Nadal: 14 Roland Garros. */
+const vs=m=>`${P[m.a].first}–${P[m.b].first}`;
+const jokesLiga = {
+  plazos: L=>[
+    L.oldest&&L.oldest.d>=30&&[L.mostFixed&&L.mostFixed.m.id===L.oldest.m.id?60:90,`Los trenes nuevos de Rodalies se esperaban para 2025 y llegarán en primavera de 2027. ${vs(L.oldest.m)} (J${L.oldest.m.j}) va por el mismo camino: ${L.oldest.d} días fuera de plazo.`],
+    L.worst&&L.worst.d>=25&&[80,`${vs(L.worst.m)} se jugó ${L.worst.d} días tarde. Si fuera un tren, Renfe te devolvería el billete.`],
+    L.played&&L.onTime/L.played<.5&&[70,`${Math.round(100*L.onTime/L.played)}% de puntualidad. Hay mañanas en la R2 que os mirarían por encima del hombro.`],
+    [10,`Aplazar también es parte del juego. Con honor.`],
+  ],
+  honores: L=>[
+    L.mostFixed&&!L.mostFixed.played&&[95,`${vs(L.mostFixed.m)}: ${L.mostFixed.n} fechas fijadas y 0 partidos. Lleva más prórrogas que los Presupuestos Generales.`],
+    L.mostFixed&&L.mostFixed.played&&[85,`${vs(L.mostFixed.m)} necesitó ${L.mostFixed.n} fechas para jugarse. Ni una investidura.`],
+    L.longest&&L.longest.g>=24&&[60,`${L.longest.g} juegos entre ${vs(L.longest.m)}. Isner y Mahut jugaron 183 en Wimbledon… pero ellos no tenían que fichar el lunes.`],
+    L.wo>=2&&[55,`${L.wo} partidos ganados por WO. La forma más elegante de ganar sin sudar la camiseta.`],
+    [10,`Con todo el honor del mundo: aquí aplazar es casi disciplina olímpica.`],
+  ],
+  fuera: L=>{ const g=L.X.github||{}, r=L.played?(g.commits||0)/L.played:0; return [
+    L.excuse&&[95,`Según vuestras encuestas, «${L.excuse.k.toLowerCase()}» aparece en ${L.excuse.l} derrotas y en ${L.excuse.w} ${L.excuse.w===1?"victoria":"victorias"}. Las condiciones, invictas.`],
+    r>=4&&[80,`Por cada partido jugado, la app se ha actualizado ${Math.round(r)} veces. Aquí el que más entrena es el código.`],
+    L.predLast&&L.predFirstWeek>=20&&dayDiff(L.predLast,today())>=21&&[70,`${L.predFirstWeek} pronósticos la primera semana. Desde el ${fmtDia(L.predLast)}, silencio. Duró menos que la dieta de septiembre.`],
+    L.votes<=10&&L.votes>0&&[50,`${L.votes} votos MVP en toda la ida. En una junta de vecinos se vota más.`],
+    [10,`Lo que pasa fuera de la pista también cuenta.`],
+  ]; },
 };
-function quip(k,x,L){
-  const id=x.id, R=x.R, me=n=>n===id, late=(L.lateBy[id]||0);
-  const Q=[];
-  if(k==="nums"){
-    if(me("carlos")&&R.pj) Q.push(`Dijiste que lo dejabas un mes. ${R.pj} partidos después, aquí sigues.`);
-    else if(R.pp>=4) Q.push(`Has perdido más partidos que veces ha anunciado Rovira que deja de competir un mes. Y mira que son.`);
-    if(R.pg>=5) Q.push(me("marcos")?`Con raqueta o con palo: ${R.pg} victorias.`:`${R.pg} victorias. Ni Marcos Pich con un palo.`);
-    if(late>=2) Q.push(me("alvaro")?`${late} partidos aplazados: cambias de fecha como de canción en tus sesiones.`:`${late} partidos aplazados: cambias más de fecha que Álvaro de canción.`);
-    if(R.pj&&R.pj<=x.maxPj-3) Q.push(me("julian")?`Solo ${R.pj} partidos. ¿Otra vez castigado?`:`Has desaparecido más que Julián cuando se escapó de casa.`);
-  }
-  if(k==="streak"){
-    if(R.best>=3) Q.push(me("marc")?`${R.best} victorias seguidas. Esas cañas te las has ganado.`:`${R.best} seguidas: más rondas que una noche de cañas con Marc Huet.`);
-    if(x.stb>=2) Q.push(me("tomas")?`Tus super tie-breaks tienen más gas que tu Vichy.`:`${x.stb} super tie-breaks: más burbujas que el Vichy de Tomás.`);
-    if(R.bag>=1) Q.push(me("eduardo")?`Roscos más duros que el pan de tres días.`:`Repartir roscos: eso es más duro que el pan de tres días de Eduardo.`);
-  }
-  if(k==="rivals"&&x.nemesis){
-    if(x.nemesis==="marcos") Q.push("Perder con Marcos no cuenta: juega bien hasta con un palo.");
-    else if(x.nemesis==="pablo") Q.push("Caer ante los globos de Pablo… eso escuece el doble.");
-    else if(x.nemesis==="joan") Q.push("Contra el frontón de Joan no se gana: se sobrevive.");
-    else if(x.nemesis==="marc") Q.push("Contra Marc Huet hay que ir con casco. Avisado estabas.");
-  }
-  if(k==="crowd"){
-    const o=L.openBy[id]||0;
-    if(L.opener&&L.opener[0]===id&&o) Q.push(`Has entrado en la app ${fmtN(o)} veces. Nadie más. Esto ya es amor.`);
-    else if(o) Q.push(`Has entrado en la app ${fmtN(o)} veces${me("tomas")?" (una por cada Vichy, calculamos)":""}.`);
-  }
-  return Q.length?`<p class="rc-quip">${esc(Q[0])}</p>`:"";
+/* Frase de entrada de cada jugador, según cómo le ha ido */
+function tagline(x,L){ const R=x.R, id=x.id;
+  const c=[
+    R.pj>=2&&R.pos===1&&[90,`Líder de la ida. Que tiemble la tabla.`],
+    R.pj>=2&&R.jc<=R.pj*3&&[85,`${R.pj} partidos, ${R.jc} juegos cedidos. Nadal ganó 14 Roland Garros y cedía más.`],
+    !R.pj&&[80,`La primera vuelta, en modo avión.`],
+    L.lateKing&&L.lateKing[0]===id&&[75,`El rey del «esta semana no me va».`],
+    R.pj&&R.pg===0&&[60,`Una ida para olvidar. Por eso vamos a recordarla.`],
+    x.woW>=1&&R.pg===x.woW&&[55,`Tus victorias llegaron sin tocar bola. Eso también es talento.`],
+    x.stb>=1&&x.stb===x.maxStb&&[45,`Si hay super tie-break, ahí estás. El corazón de la liga, a 10 puntos.`],
+    x.votes>=2&&x.votes===x.maxVotes&&[50,`El favorito de la grada. Los votos no mienten.`],
+    x.isOracle&&[48,`El oráculo de la liga: acierta más pronósticos que el Meteocat.`],
+    R.pj&&R.pos>=2&&R.pos<=3&&[35,`En la pomada, a la caza del líder.`],
+    R.pj&&R.pp>R.pg&&[30,`Una ida cuesta arriba. Las mejores remontadas empiezan así.`],
+    [10,R.pos<=4?`Zona noble de la tabla. Veamos cómo llegaste.`:`Una ida con mucha vuelta por delante.`],
+  ];
+  return pickJoke(c,new Set()); }
+function jokesYo(k,x,L){ const R=x.R, late=x.late, op=m=>P[m.a===x.id?m.b:m.a].first;
+  if(k==="nums") return [
+    R.pj<=1&&x.pend>=2&&[90,`${pl(R.pj,"partido jugado","partidos jugados")} y ${x.pend} pendientes. Tu temporada va con más retraso que la R3.`],
+    late>=2&&[L.lateKing&&L.lateKing[0]===x.id?80:45,[
+      `${late} partidos tuyos fuera de su jornada. Tu calendario lo diseña Adif.`,
+      `${late} partidos fuera de plazo. Tu agenda tiene más incidencias que el panel de Sants.`,
+      `${late} partidos fuera de su jornada. En Renfe ya preguntan por ti para planificar horarios.`,
+      `${late} partidos tarde. En Wimbledon ya te habrían multado por retraso.`][hashStr(x.id)%4]],
+    R.pg===0&&R.pp>=2&&[70,`Cero victorias, pero las ganas intactas. Eso no sale en ninguna estadística.`],
+    R.pg>=3&&R.pp===0&&[75,`Invicto. Lo único que te ha parado ha sido el calendario.`],
+    R.pp>=3&&R.pp>R.pg&&[60,`${R.pp} derrotas y sigues pidiendo pista. Eso no lo enseñan en ninguna academia.`],
+  ];
+  if(k==="streak") return [
+    R.bag>=2&&[85,`${R.bag} roscos. Hay rivales que todavía buscan el juego.`],
+    x.stb>=1&&[70,`${pl(x.stb,"super tie-break","super tie-breaks")}. El invento que nos salva de un Isner–Mahut cada semana.`],
+    R.best>=3&&[60,`${R.best} seguidas. En esta liga, juntar tres partidos ya es una gesta logística.`],
+  ];
+  if(k==="match"&&x.match){ const r=result(x.match.m);
+    return [
+      r.sets.some(s=>s.st)&&[85,`A super tie-break. La final de Roland Garros entre Alcaraz y Sinner duró 5 h 29; la tuya contra ${op(x.match.m)} pareció más.`],
+      x.match.won&&r.sets.every(s=>!s.st&&Math.min(s.a,s.b)<=1)&&[80,`Ese día ${op(x.match.m)} solo pudo mirar. Ni en la Chatrier.`],
+      !x.match.won&&isPaliza(x.match.m,x.id)&&[70,`Hay partidos que se recuerdan. Este, mejor no.`],
+    ]; }
+  if(k==="rivals"&&x.nemesis) return [
+    [50,`${P[x.nemesis].first} ya te tiene cogida la medida. En febrero, la revancha.`],
+  ];
+  return [];
 }
+function pickJoke(c,used){ const ok=c.filter(Boolean).filter(([,t])=>!used.has(t)).sort((a,b)=>b[0]-a[0]); if(!ok.length) return ""; used.add(ok[0][1]); return ok[0][1]; }
+const quipHTML=t=>t?`<p class="rc-quip">${esc(t)}</p>`:"";
 
 /* ---------- Audio: preview oficial de 30 s ---------- */
 let PREV=null;
@@ -365,40 +445,48 @@ function slides(id){
   const X=idaStats(), x=X[id], R=x.R, p=P[id], S2=SONGS[x.song], L=leagueStats();
   const pct=Math.round(100*PLAYERS.filter(q=>X[q.id].R.jf<R.jf).length/(PLAYERS.length-1));
   const nm=i=>esc(P[i].first);
+  const YJ=new Set(), yq=k=>quipHTML(pickJoke(jokesYo(k,x,L),YJ));
   const out=[], used=new Set(), usedArt=new Set([artistKey(S2.a)]);
   const DUR=1.8;   // más tiempo para leer; tocar a la derecha pasa a la siguiente   // el artista de tu canción no suena antes
   const add=(k,d,h,track)=>{ let tr=null, key=null;
     if(track===undefined){ key=pickTrack(k,x,L,used,usedArt); tr=key&&TR[key]; }
     out.push({k,d:d?Math.round(d*(k==="song"?1:k==="tease"?1.2:DUR)):0,h:h+(tr?nowPlaying(tr,hookFor(key,k,x,L)):""),track:tr?tr.id:track,alts:key?altsFor(key):[]}); };
-  /* 1-3 · La liga */
+  const J=new Set(), lj=k=>quipHTML(pickJoke(jokesLiga[k](L),J));
+  /* 1-5 · La liga */
   add("liga",9000,`<div class="rc-kick">Seniors, Juniors:</div>
     <h1 class="rc-big">Empezó como una idea entre ${PLAYERS.length} amigos.</h1>
-    <p class="rc-lead">Todo arrancó el 28 de septiembre. Primera vuelta cerrada: <b>${fmtN(L.played)}</b> partidos, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks${L.opens?`. Habéis entrado en la app <b>${fmtN(L.opens)}</b> veces`:""}. Esto ya no es una pachanga: es una liga.</p>`);
-  const big=[[L.played,"partidos jugados"],[L.games,"juegos disputados"],[L.hoursOnCourt,"horas en pista (a ojo)"],[L.opens,"entradas a la app"],[L.preds,"pronósticos"],[L.votes,"votos MVP"]].filter(([v])=>v>0).slice(0,6);
+    <p class="rc-lead">Todo arrancó el 28 de septiembre. Primera vuelta: <b>${fmtN(L.played)}</b> de ${L.total} partidos jugados, <b>${fmtN(L.games)}</b> juegos y <b>${fmtN(L.stb)}</b> super tie-breaks. Esto ya no es una pachanga: es una liga. Con sus cosas.</p>`);
+  const big=[[L.played,`de ${L.total} partidos jugados`],[L.games,"juegos disputados"],[L.hoursOnCourt,"horas en pista (a ojo)"],[L.bags,L.bags===1?"rosco (6-0)":"roscos (6-0)"],[L.stb,"super tie-breaks"],[L.preds,"pronósticos"]].filter(([v])=>v>0).slice(0,6);
   add("cifras",9000,`<h2 class="rc-h">La ida en cifras</h2><div class="rc-grid rc-grid3">${big.map(([v,l])=>`<div><b data-count="${v}">0</b><small>${l}</small></div>`).join("")}</div>
-    ${L.day?`<p class="rc-lead">Día favorito de la liga: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}.</p>`:""}`);
-  const hon=[];
-  hon.push(`<div><b data-count="${L.late}">0</b><small>partidos aplazados${L.latePending?` · ${L.latePending} aún por jugar`:""}</small></div>`);
-  if(L.moved) hon.push(`<div><b data-count="${L.moved}">0</b><small>cambios de fecha</small></div>`);
-  if(L.wo) hon.push(`<div><b data-count="${L.wo}">0</b><small>${L.wo===1?"WO":"WO"}</small></div>`);
+    ${L.day?`<p class="rc-lead">Día favorito: los <b>${WD[L.day[0]]}</b>${L.hour?`, sobre las <b>${+L.hour[0]}:00</b>`:""}${L.court&&L.court[1]>=3?`. Y la pista ${esc(L.court[0])}, vuestra segunda casa (${L.court[1]} partidos)`:""}.</p>`:""}`);
+  add("plazos",10000,`<h2 class="rc-h">Puntualidad</h2>
+    <div class="rc-num"><span data-count="${L.onTime}">0</span><small>de ${L.played} partidos, jugados dentro de su jornada</small></div>
+    <div class="rc-row">${L.avgLate?`<div><b data-count="${L.avgLate}">0</b><small>días de retraso medio</small></div>`:""}<div><b data-count="${L.latePending}">0</b><small>partidos fuera de plazo y aún por jugar</small></div></div>
+    ${lj("plazos")}`);
   const aw=[];
-  if(L.lateKing) aw.push(`<li>${face(L.lateKing[0],"sm")}<span><small>Rey del aplazamiento</small><b>${nm(L.lateKing[0])}</b> · ${L.lateKing[1]} aplazados</span></li>`);
-  if(L.opener) aw.push(`<li>${face(L.opener[0],"sm")}<span><small>Adicto a la app</small><b>${nm(L.opener[0])}</b> · ${fmtN(L.opener[1])} entradas</span></li>`);
+  if(L.lateKing) aw.push(`<li>${face(L.lateKing[0],"sm")}<span><small>Rey del aplazamiento</small><b>${nm(L.lateKing[0])}</b> · ${L.lateKing[1]} partidos fuera de plazo</span></li>`);
+  if(L.mostFixed) aw.push(`<li><span class="rc-face sm rc-face-x">📅</span><span><small>El partido más refijado</small><b>${nm(L.mostFixed.m.a)} – ${nm(L.mostFixed.m.b)}</b> · ${L.mostFixed.n} fechas${L.mostFixed.played?"":" y sin jugar"}</span></li>`);
   if(L.longest) aw.push(`<li><span class="rc-face sm rc-face-x">⏱</span><span><small>El partido más largo</small><b>${nm(L.longest.m.a)} – ${nm(L.longest.m.b)}</b> · ${L.longest.g} juegos</span></li>`);
-  add("honores",10000,`<h2 class="rc-h">Méritos, honores y deshonores</h2><div class="rc-row">${hon.join("")}</div>
-    <ul class="rc-awards">${aw.join("")}</ul>
-    <p class="rc-lead">${L.late>=10?"Con todo el honor del mundo: aquí aplazar es casi una disciplina olímpica.":L.late?"Aplazar también es parte del juego. Con honor.":"Ni un aplazamiento. ¿Seguro que esto es una liga de amigos?"}</p>`);
+  add("honores",10000,`<h2 class="rc-h">Méritos, honores y deshonores</h2>
+    <ul class="rc-awards">${aw.join("")}</ul>${lj("honores")}`);
+  const g=L.X.github||{}, ph=L.X.posthog||{}, ve=L.X.vercel||{};
+  const off=[];
+  if(g.commits) off.push(`<div><b data-count="${g.commits}">0</b><small>actualizaciones de la app</small></div>`);
+  off.push(`<div><b data-count="${L.preds}">0</b><small>pronósticos${L.predLast?` · el último, el ${fmtDia(L.predLast)}`:""}</small></div>`);
+  off.push(`<div><b data-count="${L.votes}">0</b><small>votos MVP${L.voteLast?` · el último, el ${fmtDia(L.voteLast)}`:""}</small></div>`);
+  if(ve.iosShare) off.push(`<div><b data-count="${Math.round(ve.iosShare*100)}">0</b><small>% de las visitas, desde iPhone</small></div>`);
+  add("fuera",10000,`<h2 class="rc-h">Fuera de la pista</h2><div class="rc-grid">${off.slice(0,4).join("")}</div>${lj("fuera")}`);
   /* 4+ · Tu ida */
   add("intro",7500,`<div class="rc-kick">Y ahora, tú</div><h1 class="rc-big">${esc(p.first)}</h1>
     <div class="rc-hero">${face(id,"xl")}</div>
-    <p class="rc-lead">${esc(LORE[id]||p.bio||"")}</p>`);
+    <p class="rc-lead">${esc(tagline(x,L))}</p>`);
   if(!R.pj){
-    add("none",7000,`<h2 class="rc-h">La ida, desde la grada</h2><div class="rc-num"><span data-count="0">0</span><small>partidos</small></div><p class="rc-lead">Te guardamos el sitio en la segunda vuelta.</p>${quip("nums",x,L)}`);
+    add("none",7000,`<h2 class="rc-h">La ida, desde la grada</h2><div class="rc-num"><span data-count="0">0</span><small>partidos</small></div><p class="rc-lead">Te guardamos el sitio en la segunda vuelta.</p>${yq("nums")}`);
   } else {
     add("nums",8000,`<h2 class="rc-h">Tus números</h2>
       <div class="rc-num"><span data-count="${R.pj}">0</span><small>partidos</small></div>
       <div class="rc-row"><div><b class="rc-w" data-count="${R.pg}">0</b><small>victorias</small></div><div><b data-count="${R.pp}">0</b><small>derrotas</small></div><div><b data-count="${R.jf}">0</b><small>juegos ganados</small></div></div>
-      <p class="rc-lead">Has ganado más juegos que el <b>${pct}%</b> de la liga.</p>${quip("nums",x,L)}`);
+      <p class="rc-lead">${pct>=100?`<b>Nadie</b> ha ganado más juegos que tú.`:pct<=0?`De momento, a la cola en juegos ganados. Margen hay.`:`Has ganado más juegos que el <b>${pct}%</b> de la liga.`}</p>${yq("nums")}`);
     add("pos",7500,`<h2 class="rc-h">Cierras la ida</h2>
       <div class="rc-num rc-posn"><span data-count="${R.pos}">0</span><sup>º</sup></div>
       <div class="rc-row"><div><b data-count="${R.pts}">0</b><small>puntos</small></div><div><b data-count="${x.elo}">0</b><small>índice Elo · ${x.eloPos}º</small></div></div>
@@ -408,17 +496,19 @@ function slides(id){
     if(x.stb) stk.push(`<div><b data-count="${R.stW}">0</b><small>super tie-breaks ganados de ${x.stb}</small></div>`);
     if(R.bag) stk.push(`<div><b data-count="${R.bag}">0</b><small>${R.bag===1?"rosco":"roscos"} (6-0)</small></div>`);
     if(stk.length) add("streak",8000,`<h2 class="rc-h">Tu carácter en pista</h2><div class="rc-grid">${stk.join("")}</div>
-      <p class="rc-lead">Forma: <span class="rc-form">${R.form.map(f=>`<i class="${f==="W"?"w":"l"}">${f==="W"?"V":"D"}</i>`).join("")}</span></p>${quip("streak",x,L)}`);
+      <p class="rc-lead">Forma: <span class="rc-form">${R.form.map(f=>`<i class="${f==="W"?"w":"l"}">${f==="W"?"V":"D"}</i>`).join("")}</span></p>${yq("streak")}`);
     if(x.fetiche||x.nemesis) add("rivals",8000,`<h2 class="rc-h">Tus rivales</h2><div class="rc-duo">
       ${x.fetiche?`<div class="rc-riv">${face(x.fetiche)}<small>Rival fetiche</small><b>${nm(x.fetiche)}</b><span>${R.h2h[x.fetiche].w}–${R.h2h[x.fetiche].l}</span></div>`:""}
       ${x.nemesis?`<div class="rc-riv bad">${face(x.nemesis)}<small>Tu némesis</small><b>${nm(x.nemesis)}</b><span>${R.h2h[x.nemesis].w}–${R.h2h[x.nemesis].l}</span></div>`:""}
-      </div>${x.nemesis&&bgFor("rivals",x,L)[0]==="abusadora"?`<p class="rc-lead">${nm(x.nemesis)} te ha repasado: ${R.h2h[x.nemesis].w}–${R.h2h[x.nemesis].l}. Suena lo que tiene que sonar.</p>`:""}${quip("rivals",x,L)||`<p class="rc-lead">${x.nemesis&&x.fetiche?"A uno ya le tienes cogida la medida. Con el otro hay cuentas pendientes.":x.fetiche?"Nadie te ha cogido la medida. De momento.":"La vuelta es para ajustar cuentas."}</p>`}`);
+      </div>${yq("rivals")||`<p class="rc-lead">${x.nemesis&&x.fetiche?"A uno ya le tienes cogida la medida. Con el otro hay cuentas pendientes.":x.fetiche?"Nadie te ha cogido la medida. De momento.":"La vuelta es para ajustar cuentas."}</p>`}`);
     if(x.match){ const ml=matchLine(x.match.m,id); add("match",8000,`<h2 class="rc-h">${x.match.won?"El partido de tu ida":"El que más dolió"}</h2>
       <div class="rc-vs">${face(id)}<em>vs</em>${face(ml.op)}</div>
-      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>`); }
+      <div class="rc-score">${esc(ml.sets)}</div><p class="rc-lead">Jornada ${ml.j} contra ${nm(ml.op)}. ${x.match.won?(x.upset&&x.upset.m.id===x.match.m.id&&x.upset.pe<.35?`Nadie daba un duro por ti (${Math.round(x.upset.pe*100)}% de opciones). Y ganaste.`:"Ese día fuiste leyenda."):(isPaliza(x.match.m,id)?"Ese día te pintaron pajaritos.":"Ese se queda en la memoria. Para mal.")}</p>${yq("match")}`); }
   }
-  add("crowd",7500,`<h2 class="rc-h">La grada</h2><div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>
-    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:`<p class="rc-lead">Ni un pronóstico. En la vuelta, mójate.</p>`}${quip("crowd",x,L)}`);
+  if(x.votes>=1||x.pred.n>=3){ const acc=x.pred.n?x.pred.hits/x.pred.n:0;
+    const cq=x.pred.n>=4&&acc>=.75?`Aciertas el ${Math.round(acc*100)}%. Si apostaras, ya tendrías palco en Wimbledon.`:x.pred.n>=4&&acc<=.4?`Aciertas el ${Math.round(acc*100)}%. Tirando una moneda irías mejor. No lo dejes.`:"";
+    add("crowd",7500,`<h2 class="rc-h">La grada</h2>${x.votes?`<div class="rc-row"><div><b data-count="${x.votes}">0</b><small>votos MVP recibidos</small></div><div><b data-count="${x.mvpJ}">0</b><small>${x.mvpJ===1?"jornada como MVP":"jornadas como MVP"}</small></div></div>`:""}
+    ${x.pred.n?`<div class="rc-row"><div><b data-count="${x.pred.hits}">0</b><small>pronósticos acertados de ${x.pred.n}</small></div><div><b data-count="${x.pred.exact}">0</b><small>clavados al set</small></div></div>`:""}${quipHTML(cq)}`); }
   add("tease",3800,`<h2 class="rc-big rc-tease">Toda temporada<br>tiene banda sonora.</h2><p class="rc-lead">Sube el volumen 🔊</p>`,null);
   add("song",29000,`<div class="rc-kick">Tu ida en una canción</div>
     <div class="rc-disc"><div class="rc-vinyl"><img class="rc-art" alt=""><span class="rc-lbl" style="--c:${p.color}"><img src="${IMG(id)}" alt=""></span></div></div>
@@ -438,21 +528,22 @@ function slides(id){
   add("thanks",0,`<div class="rc-kick">Gracias</div>
     <h2 class="rc-big">Gracias por hacer historia.</h2>
     <p class="rc-lead">Esta es la primera temporada de la Americana Legends Cup y existe porque ${PLAYERS.length} amigos decidieron tomársela en serio. Gracias por cada partido, cada voto, cada aplazamiento y cada birra post partido.</p>
-    <p class="rc-lead">La vuelta arranca el <b>1 de febrero</b>. Id calentando.</p>
+    <p class="rc-lead">La vuelta arranca el <b>1 de febrero</b>. Propósito de año nuevo: cada partido, en su jornada. Sin prórrogas.</p>
     <button class="btn ghost" data-rc-close data-nostep>Volver a la app</button>`);
   return {list:out, x, song:S2};
 }
 
 /* ---------- Reproductor de historias ---------- */
 let RC=null;
-async function loadOpens(){
-  if(!Store.db) { try{ Store.recapOpens=JSON.parse(localStorage.getItem("am_opens")||"{}"); }catch(e){} return; }
-  try{ const d=await Store.db.collection("stats").doc("opens").get(); Store.recapOpens=d.exists?d.data():{}; VERSION++; }catch(e){}
+/* Encuestas de después del partido (solo cifras agregadas): para las «excusas» de la liga */
+async function loadSurveys(){
+  if(!Store.db){ Store.recapSurveys={}; return; }
+  try{ const q=await Store.db.collection("survey_stats").get(); Store.recapSurveys={}; q.forEach(d=>Store.recapSurveys[d.id]=d.data()); VERSION++; }catch(e){ Store.recapSurveys={}; }
 }
 const trackIds=d=>[...new Set(d.list.flatMap(s=>[s.track,...(s.alts||[]).slice(0,1)]).filter(Boolean))];
 /* Rótulo gigante que cruza el fondo de cada historia */
 function tickerFor(k,id,x,song){
-  const R=x.R, T={liga:"PRIMERA VUELTA",cifras:"LA IDA EN CIFRAS",honores:"APLAZADOS",intro:P[id].first.toUpperCase(),nums:"TUS NÚMEROS",none:"DESDE LA GRADA",
+  const R=x.R, T={liga:"PRIMERA VUELTA",cifras:"LA IDA EN CIFRAS",plazos:"PUNTUALIDAD",honores:"DESHONORES",fuera:"FUERA DE PISTA",intro:P[id].first.toUpperCase(),nums:"TUS NÚMEROS",none:"DESDE LA GRADA",
     pos:`${R.pos}º PUESTO`,streak:"CARÁCTER",rivals:"RIVALES",match:"PARTIDAZO",crowd:"LA GRADA",tease:"BANDA SONORA",song:song.t.toUpperCase(),card:"TU IDA",thanks:"GRACIAS"};
   const w=T[k]||"LEGENDS CUP"; return `<div class="rc-tick" aria-hidden="true"><span>${(esc(w)+" · ").repeat(6)}</span><span>${(esc(w)+" · ").repeat(6)}</span></div>`;
 }
@@ -471,19 +562,19 @@ function fitText(root){
     const widest=()=>Math.max(...[...h.querySelectorAll(".w")].map(w=>w.offsetWidth),0);
     while(widest()>max&&fs>22&&n++<30){ fs*=.94; h.style.fontSize=fs+"px"; } });
 }
-const FX=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];
+const FXT=["fx-circle","fx-wipe","fx-zoom","fx-diag","fx-circle","fx-slide"];
 async function openRecap(id){
   /* Cada uno solo ve el suyo (en modo prueba local se puede pedir otro para revisar) */
   id=(Store.local&&id)||Store.myPlayer||S.me; if(!P[id]) return;
   if(!available()&&!Store.local) return;   // antes del 26/12 solo los testers
-  if(!Store.recapOpens) await loadOpens();
+  if(!Store.recapSurveys) await loadSurveys();
   closeRecap(true);
   const data=slides(id);
   const el=document.createElement("div"); el.id="recap"; el.setAttribute("role","dialog"); el.setAttribute("aria-modal","true"); el.setAttribute("aria-label","Resumen de la primera vuelta");
   el.style.setProperty("--c",P[id].color);
   el.innerHTML=`<div class="rc-bars">${data.list.map(()=>`<i><b></b></i>`).join("")}</div>
     <button class="rc-x" data-rc-close aria-label="Cerrar">×</button><button class="rc-mute" data-rc-mute aria-label="Silenciar">${muted?"🔇":"🔊"}</button>
-    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k} ${FX[i%FX.length]}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-shape s1"></div><div class="rc-shape s2"></div>${tickerFor(s.k,id,data.x,data.song)}<div class="rc-in">${s.h}</div></section>`).join("")}</div>
+    <div class="rc-stage">${data.list.map((s,i)=>`<section class="rc-s rc-k-${s.k} ${FXT[i%FXT.length]}" data-i="${i}"><div class="rc-blob a"></div><div class="rc-blob b"></div><div class="rc-shape s1"></div><div class="rc-shape s2"></div>${tickerFor(s.k,id,data.x,data.song)}<div class="rc-in">${s.h}</div></section>`).join("")}</div>
     <div class="rc-start"><div class="rc-in"><div class="rc-kick">Americana Legends Cup · Vol. 1</div><h1 class="rc-big">La primera vuelta ya suena</h1><p class="rc-lead">${esc(P[id].first)}: cada historia tiene su canción. Sube el volumen.</p><button class="btn ball" data-rc-go>Empezar 🎧</button></div></div>`;
   splitWords(el);
   document.body.appendChild(el); document.body.classList.add("rc-on");
@@ -593,15 +684,7 @@ function maybeAuto(){
   if(want||(today()>=RECAP_FROM&&!seen)){ if(available()) openRecap(); }
   return true;
 }
-const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); countOpen(); if(available()) previews().then(()=>{ try{ const me=Store.myPlayer||S.me; if(P[me]) prefetch(slides(me).list.map(z=>z.track).slice(0,4)); }catch(e){} }); } },800);
-/* Contador de entradas a la app (una por sesión): alimenta «habéis entrado X veces» */
-function countOpen(){
-  try{ if(sessionStorage.getItem("am_opened")) return; sessionStorage.setItem("am_opened","1"); }catch(e){ return; }
-  const me=Store.myPlayer||S.me; if(!me||!P[me]) return;
-  if(!Store.db){ try{ const o=JSON.parse(localStorage.getItem("am_opens")||"{}"); o.total=(o.total||0)+1; o[me]=(o[me]||0)+1; localStorage.setItem("am_opens",JSON.stringify(o)); }catch(e){} return; }
-  const inc=firebase.firestore.FieldValue.increment(1);
-  Store.db.collection("stats").doc("opens").set({total:inc,[me]:inc},{merge:true}).catch(()=>{});
-}
+const iv=setInterval(()=>{ if(maybeAuto()){ clearInterval(iv); if(available()) previews().then(()=>{ try{ const me=Store.myPlayer||S.me; if(P[me]) prefetch(slides(me).list.map(z=>z.track).slice(0,4)); }catch(e){} }); } },800);
 window.addEventListener("hashchange",()=>{
   if(location.hash==="#recap-preview"){ try{ localStorage.setItem("am_recap_preview","1"); }catch(e){} }
   if(location.hash.startsWith("#recap")&&ready()&&available()) openRecap(); });
@@ -623,5 +706,6 @@ document.addEventListener("click",e=>{ if(e.target.closest("[data-rc-open]")) op
 
 window.openRecap=openRecap;
 window.recapNow=()=>({track:curTrack, playing:!audio.paused&&!!curTrack, t:+audio.currentTime.toFixed(2)});
+window.recapLiga=()=>{ const L=leagueStats(); return {played:L.played,onTime:L.onTime,avgLate:L.avgLate,worst:L.worst&&[L.worst.m.id,L.worst.d],oldest:L.oldest&&[L.oldest.m.id,L.oldest.d],mostFixed:L.mostFixed&&[L.mostFixed.m.id,L.mostFixed.n],lateKing:L.lateKing,excuse:L.excuse,preds:L.preds,predLast:L.predLast,votes:L.votes,fixed:L.fixed}; };
 window.recapSongs=()=>{ const X=idaStats(); return PLAYERS.map(p=>[p.first,SONGS[X[p.id].song].t]); };
 })();
