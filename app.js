@@ -668,7 +668,7 @@ function playerPoster(id){
   return `<article class="poster" aria-label="${esc(p.name)}" style="--fs:${fs}cqw;--ca:${p.color};--cb:#F3C64E">
     ${smoke(true)}<div class="p-bg" aria-hidden="true"><span>${esc(p.first)}</span><span>${esc(p.last)}</span></div>
     <div class="p-beams" aria-hidden="true"></div><div class="p-glow" style="left:22%;background:${p.color}"></div>
-    <div class="hero solo body" style="--c:${p.color}"><img src="${BODY(id)}" alt=""></div>
+    <div class="hero solo body walkin" style="--c:${p.color}"><div class="wk-tunnel" aria-hidden="true"></div><div class="wk-spot" aria-hidden="true"></div><img src="${BODY(id)}" alt=""><div class="wk-smoke" aria-hidden="true"></div></div>
     <div class="p-pos l" style="top:4cqw">${R.pos}º<small>${R.pts} pts</small></div>
     <div class="bands" aria-hidden="true"><div class="band b1"><span class="track">${(esc(p.name)+" · <em>"+R.pg+"V "+R.pp+"D</em> · ").repeat(8)}</span></div></div>
     <div class="p-title"><div class="p-kicker"><span class="bl"></span>Americana Legends Cup · Vol. 1</div><div class="p-names">${esc(p.name)}</div><div class="p-meta">${p.nick?"“"+esc(p.nick)+"” · ":""}${formHtml(R.form)}</div></div>
@@ -937,7 +937,7 @@ function walkBlob(id){ if(!WALKOUTS.includes(id)) return Promise.resolve(null);
 WALKOUTS.forEach(id=>setTimeout(()=>walkBlob(id),3000));
 let VSX=null;
 function vsMedia(id){
-  return `<img class="vx-img" src="${BODY(id)}" alt="" decoding="async" ${WALKOUTS.includes(id)?`data-walk="${id}"`:""}>`;
+  return `<div class="wk-tunnel" aria-hidden="true"></div><div class="wk-spot" aria-hidden="true"></div><img class="vx-img wk" src="${BODY(id)}" alt="" decoding="async" ${WALKOUTS.includes(id)?`data-walk="${id}"`:""}><div class="wk-smoke" aria-hidden="true"></div>`;
 }
 function openVersus(id){
   const m=getMatch(id); if(!m.a||!m.b){ openMatch(id); return; }
@@ -994,9 +994,9 @@ function openVersus(id){
   const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
   const T=[]; const at=(ms,f)=>T.push(setTimeout(f,reduced?0:ms));
   at(150,()=>root.classList.add("s1"));
-  at(800,()=>root.classList.add("s2"));
-  at(1550,()=>{ root.classList.add("s3"); if(!reduced){ fx.burst(); if(navigator.vibrate) navigator.vibrate([30,40,60]); } });
-  at(3300,()=>tape());
+  at(900,()=>root.classList.add("s2"));
+  at(2200,()=>{ root.classList.add("s3"); if(!reduced){ fx.burst(); if(navigator.vibrate) navigator.vibrate([30,40,60]); } });
+  at(3900,()=>tape());
   function tape(){ root.classList.add("s1","s2","s3","s4"); root.querySelectorAll("[data-count]").forEach(n=>countUp(n,reduced)); }
   VSX={stop(){ T.forEach(clearTimeout); fx.stop(); }, skip(){ T.forEach(clearTimeout); tape(); }};
 }
