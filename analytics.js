@@ -74,6 +74,15 @@
   window.dxConsentOpen = () => ask(true);
   window.dxConsent = () => ls.get(K);
 
+  // Enlace directo desde el aviso «#analitica»: vuelve a preguntar (también a quien dijo que no) y deja la app en Inicio
+  function fromLink() {
+    if ((location.hash || '') !== '#analitica') return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (ls.get(K) === 'yes') return;
+    const t = setInterval(() => { if (who) { clearInterval(t); setTimeout(() => ask(true), 600); } }, 400);
+  }
+  addEventListener('hashchange', fromLink); fromLink();
+
   if (ls.get(K) === 'yes') load();
   else if (!ls.get(K)) {   // se pregunta cuando la persona ya ha entrado (no en la pantalla de acceso)
     const t = setInterval(() => { if (who) { clearInterval(t); setTimeout(() => ask(false), 2500); } }, 1000);
