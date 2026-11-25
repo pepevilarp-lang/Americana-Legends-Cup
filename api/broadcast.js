@@ -12,6 +12,13 @@ const ANUNCIOS = {
     body: "Vayamos a solucionar el gran mal de esta liga: los aplazamientos. Abre la app, contesta 3 preguntas y se acabaron los «¿y el jueves?».",
     url: "./#agenda", tag: "agenda-1811",
   },
+  // A quien aún no ha aceptado la analítica (Pepe, Álvaro, Joan y Eduardo ya la aceptaron)
+  "analitica-2511": {
+    title: "📊 Un favor de 2 segundos",
+    body: "Toca aquí y dale a «Aceptar»: así sabremos qué funciona en la app y tendremos datos de verdad para el resumen de la ida del 26/12.",
+    url: "./#analitica", tag: "analitica-2511",
+    skip: ["pepe", "alvaro", "joan", "eduardo"],
+  },
 };
 
 module.exports = async (req, res) => {
@@ -25,7 +32,7 @@ module.exports = async (req, res) => {
     const mark = `${BASE}/config/bc_${q.id}`;
     const prev = await fetch(mark, { headers: auth });
     if (prev.ok) return res.status(200).json({ id: q.id, already: true });
-    const subs = await list("push", tok);
+    const subs = (await list("push", tok)).filter(d => !(a.skip || []).includes(str(d.fields, "who")));
     const who = [...new Set(subs.map(d => str(d.fields, "who")).filter(Boolean))];
     if (q.dry) return res.status(200).json({ id: q.id, dry: true, devices: subs.length, players: who, payload: a });
     // se marca ANTES de enviar: si algo falla a medias, nunca sale dos veces
@@ -36,7 +43,7 @@ module.exports = async (req, res) => {
     let sent = 0, failed = 0;
     await Promise.all(subs.map(async d => {
       let sub; try { sub = JSON.parse(str(d.fields, "sub")); } catch (_) { return; }
-      try { await webpush.sendNotification(sub, JSON.stringify(a), { TTL: 12 * 3600, urgency: "high" }); sent++; } catch (e) { failed++; }
+      try { await webpush.sendNotification(sub, JSON.stringify({ title: a.title, body: a.body, url: a.url, tag: a.tag }), { TTL: 12 * 3600, urgency: "high" }); sent++; } catch (e) { failed++; }
     }));
     res.status(200).json({ id: q.id, sent, failed, devices: subs.length, players: who.length });
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
