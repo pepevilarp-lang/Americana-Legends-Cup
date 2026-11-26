@@ -57,6 +57,9 @@ function buildPlan(saved, today, ag = {}) {
     all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid => { const riv = rival(m, pid), t = tip(m, riv);
       add(pid, { title: `🎾 ${word} juegas`, body: `Contra ${nm(riv)}${detail(m)}. ${t ? t + " Toca para ver su informe." : "¡Suerte!"}`, tag: `daily-${today}`, url: t ? `./#scout-${riv}` : undefined }); }));
   }
+  // 1a) Encuesta sin contestar: recordatorio al día siguiente, a los 2, 4 y 7 días
+  (ag.pending || []).forEach(sv => { const d = sv.days; if (![1, 2, 4, 7].includes(d) && !(d > 7 && AC.dow(today) === 1)) return;
+    add(sv.playerId, { title: "🎾 Tú, tenista", body: `Tienes pendiente responder la encuesta de tu partido contra ${nm(sv.rival)}. Son 30 segundos y alimentan tu informe y tu evolución.`, tag: `sv-${today}`, url: "./#hoy" }); });
   // 1b) Día del resumen de la primera vuelta: aviso especial (quien juega hoy ya tiene su «Hoy juegas»)
   if (today === RECAP_FROM) {
     Object.keys(NAMES).forEach(pid => add(pid, { title: "🎧 Tu primera vuelta ya suena",
@@ -114,6 +117,14 @@ async function list(col, tok) {
   return out;
 }
 const str = (f, k) => (f && f[k] && f[k].stringValue) || "";
+const intMap = o => ({ mapValue: { fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { integerValue: String(v) }])) } });
+async function writeRv(pid, x, noN, tok) {
+  const fields = { rv_n: { integerValue: String(x.n) }, rv_golpes: intMap(x.g), rv_clave: intMap(x.c) };
+  if (noN) Object.assign(fields, { n: { integerValue: "0" }, w: { integerValue: "0" }, l: { integerValue: "0" }, pid: { stringValue: pid } });
+  const mask = Object.keys(fields).map(k => "updateMask.fieldPaths=" + k).join("&");
+  const r = await fetch(`${BASE}/survey_stats/${encodeURIComponent(pid)}?${mask}`, { method: "PATCH", headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
+  if (!r.ok) throw new Error("rv " + r.status);
+}
 /* Valor de Firestore (formato REST) → valor normal */
 function fsVal(v) {
   if (!v) return null;
@@ -145,14 +156,24 @@ module.exports = async (req, res) => {
       const parts = id.split("-"); const a = str(f, "a") || parts[1], b = str(f, "b") || parts.slice(2).join("-");
       saved[id] = { status: str(f, "status"), date: str(f, "date"), time: str(f, "time"), court: str(f, "court"), a, b }; });
     const today = (req.query && req.query.date) || ymdMadrid();
-    // Día 1 de mes: resumen de evolución de cada uno a partir de sus encuestas
+    // Encuestas: pendientes (recordatorio), lo que dicen los rivales de cada uno y, el día 1, la evolución
+    const svs = (await list("surveys", tok).catch(() => [])).map(d => fsVal({ mapValue: { fields: d.fields || {} } })).filter(Boolean);
+    const rivalOf = sv => { const m = saved[sv.matchId]; if (!m) return null; return m.a === sv.playerId ? m.b : m.b === sv.playerId ? m.a : null; };
+    const now = Date.now(), pending = svs.filter(v => v.status === "pending" && v.playerId && v.t)
+      .map(v => ({ playerId: v.playerId, rival: rivalOf(v), days: Math.floor((now - v.t) / 864e5) })).filter(v => v.rival);
+    const done = svs.filter(v => v.status === "completed" && v.playerId && v.answers);
     let evo = null;
-    if (today.slice(8) === "01") {
-      const svs = await list("surveys", tok).catch(() => []), by = {};
-      svs.forEach(d => { const v = fsVal({ mapValue: { fields: d.fields || {} } }); if (v && v.status === "completed" && v.playerId && v.answers) (by[v.playerId] = by[v.playerId] || []).push(v); });
-      evo = Object.fromEntries(Object.keys(NAMES).map(pid => [pid, EVO.line(EVO.summarize(by[pid] || []))]));
-    }
-    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs), scout: toObj(sDocs), wxAt: (d, t) => WX.condAt(fc, d, t), evo });
+    if (today.slice(8) === "01") { const by = {}; done.forEach(v => (by[v.playerId] = by[v.playerId] || []).push(v));
+      evo = Object.fromEntries(Object.keys(NAMES).map(pid => [pid, EVO.line(EVO.summarize(by[pid] || []))])); }
+    // «Lo que dicen de ti tus rivales»: se suma en survey_stats de cada uno (solo cifras agregadas, nunca quién lo dijo)
+    try { const rv = {};
+      done.forEach(v => { const r = rivalOf(v); if (!r) return; const a = v.answers, g = [].concat(a.rival_golpes || []), c = [].concat(a.rival_clave || []);
+        if (!g.length && !c.length) return; const x = rv[r] = rv[r] || { n: 0, g: {}, c: {} }; x.n++;
+        g.forEach(k => x.g[k] = (x.g[k] || 0) + 1); c.forEach(k => x.c[k] = (x.c[k] || 0) + 1); });
+      const statN = Object.fromEntries(sDocs.map(d => [d.name.split("/").pop(), d.fields && d.fields.n]));
+      await Promise.all(Object.entries(rv).map(([pid, x]) => writeRv(pid, x, statN[pid] === undefined, tok)));
+    } catch (_) {}
+    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs), scout: toObj(sDocs), wxAt: (d, t) => WX.condAt(fc, d, t), evo, pending });
     if (req.query && req.query.dry) return res.status(200).json({ today, plan });
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:liga@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     let sent = 0, failed = 0;
