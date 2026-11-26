@@ -143,7 +143,8 @@ module.exports = async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const secret = process.env.CRON_SECRET;
   if (!secret) return res.status(500).json({ error: "falta CRON_SECRET en Vercel" });
-  if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: "unauthorized" });
+  const dryKey = req.query && req.query.dry && req.query.key === secret;
+  if (req.headers.authorization !== `Bearer ${secret}` && !dryKey) return res.status(401).json({ error: "unauthorized" });
   if (!process.env.FIREBASE_SERVICE_ACCOUNT) return res.status(500).json({ error: "falta FIREBASE_SERVICE_ACCOUNT en Vercel" });
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return res.status(500).json({ error: "vapid keys missing" });
   try {
