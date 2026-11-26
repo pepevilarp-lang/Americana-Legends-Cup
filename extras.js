@@ -635,12 +635,12 @@ const SV_STEPS=[
   {key:"q12",title:"¿Cuál fue la clave de tu rival?",opts:SV.clave},
   {key:"q3",title:"Golpes del partido",golpes:true},
   {key:"q4",title:"¿Cómo estaba la pista?",opts:SV.pista},
-  {key:"q5",title:"¿Cómo fueron las condiciones meteorológicas?",opts:SV.clima},
+  {key:"q5",title:"¿Qué condiciones hubo?",opts:SV.clima},
   {key:"q6",title:"¿Cómo te encontraste físicamente?",opts:SV.fisico},
   {key:"q7",title:"¿Hubo deportividad durante el partido?",opts:SV.deport},
   {key:"q8",title:"¿El resultado refleja lo ocurrido en pista?",opts:SV.refl},
   {key:"q9",title:"¿Cuál fue el factor decisivo?",opts:SV.factor},
-  {key:"q10",title:"Comentario opcional",comment:true}
+  {key:"q10",title:"¿Algo más que contar?",comment:true}
 ];
 
 let SV_RUN=null;
@@ -664,35 +664,67 @@ function svValid(step){
   if(s.comment) return true;
   return svLen(s.key)>0;
 }
-function svRender(){
-  const {ov}=SV_RUN, s=SV_STEPS[SV_RUN.step], n=SV_STEPS.length, pct=(SV_RUN.step+1)/n*100;
-  const {m,rival}=svSide(), total=SV_RUN.list.length, left=SV_RUN.idx+1;
-  let body="";
+const SV_EYE={q1:"Tú",q2:"Tu rival",q11:"Tu rival",q12:"Tu rival",q3:"Tu juego",q4:"La pista",q5:"El tiempo",q6:"Tú",q7:"El partido",q8:"El partido",q9:"El partido",q10:"Para acabar"};
+const SV_SCALE=new Set(["q1","q2","q6","q7","q8"]);
+function svHead(){
+  const d=svCurrent(), {m,rival}=svSide(), r=result(m), me=d.playerId, mineA=me===m.a;
+  const won=r?((r.w==="a")===mineA):null, sc=r?(r.wo?"WO":(r.sets||[]).map(x=>mineA?`${x.a}-${x.b}`:`${x.b}-${x.a}`).join("  ")):"";
+  const col=(P[rival]&&P[rival].color)||"var(--sky)";
+  return `<div class="sv-match"><img class="sv-av" src="${IMG(rival)}" alt="" style="--c:${col}" onerror="this.style.visibility='hidden'">
+    <div class="sv-mt"><small>${esc(jLabel(m))} · Tu partido contra</small><b>${esc(nm(rival))}</b></div>
+    ${r?`<div class="sv-res ${won?"w":"l"}"><em>${won?"Victoria":"Derrota"}</em><b>${esc(sc)}</b></div>`:""}</div>`;
+}
+function svRender(dir){
+  const {ov}=SV_RUN, s=SV_STEPS[SV_RUN.step], n=SV_STEPS.length, st=SV_RUN.step;
+  const {rival}=svSide(), total=SV_RUN.list.length, left=SV_RUN.idx+1;
+  const chip=(key,t,extra="")=>`<button class="sv-o ${t.length>15?"full ":""}${svHas(key,t)?"on":""}" data-sv="${key}" data-v="${esc(t)}" aria-pressed="${svHas(key,t)}" ${extra}><span>${esc(t)}</span><i aria-hidden="true"></i></button>`;
+  let body="", hint="";
   if(s.golpes){
-    const g=(key,other)=>SV.golpes.map(([k,t])=>{ const blocked=svHas(other,t); return `<button class="sv-o ${svHas(key,t)?"on":""}" data-sv="${key}" data-v="${t}" ${blocked?"disabled":""} aria-pressed="${svHas(key,t)}">${t}</button>`; }).join("");
-    body=`<p class="sv-multi">Puedes marcar varios en cada pregunta.</p>
-      <div class="sv-group"><h4>¿Con qué golpes jugaste con más confianza?</h4><div class="sv-opts">${g("q3a","q3b")}</div></div>
-      <div class="sv-group"><h4>¿Con cuáles jugaste con menos confianza?</h4><div class="sv-opts">${g("q3b","q3a")}</div></div>`;
+    const g=(key,other)=>SV.golpes.map(([k,t])=>chip(key,t,svHas(other,t)?"disabled":"")).join("");
+    body=`<div class="sv-grp good"><h4><span>▲</span>Con más confianza</h4><div class="sv-opts">${g("q3a","q3b")}</div></div>
+      <div class="sv-grp bad"><h4><span>▼</span>Con menos confianza</h4><div class="sv-opts">${g("q3b","q3a")}</div></div>`;
+    hint="Marca los que quieras en cada bloque. Un golpe no puede estar en los dos.";
   } else if(s.comment){
-    body=`<textarea id="sv-com" maxlength="300" placeholder="Opcional. Lo que quieras decir del partido (máx. 300 caracteres)">${esc(SV_RUN.ans.q10||"")}</textarea><div class="sv-count"><span id="sv-cc">${(SV_RUN.ans.q10||"").length}</span>/300</div>`;
+    const v=SV_RUN.ans.q10||"";
+    body=`<div class="sv-ta"><textarea id="sv-com" maxlength="300" placeholder="Lo que quieras contar del partido…">${esc(v)}</textarea><div class="sv-cc"><span id="sv-cc">${v.length}</span>/300</div></div>
+      <p class="sv-lock">🔒 Tu comentario es privado: nadie más lo ve, ni siquiera tu rival.</p>`;
+    hint="Opcional. Puedes enviar la encuesta sin escribir nada.";
+  } else if(SV_SCALE.has(s.key)){
+    const cur=SV_RUN.ans[s.key];
+    body=`<div class="sv-scale">${s.opts.map((t,i)=>`<button class="sv-sc s${i+1} ${cur===t?"on":""}" data-sv="${s.key}" data-v="${esc(t)}" aria-pressed="${cur===t}"><b>${i+1}</b><span>${esc(t)}</span></button>`).join("")}</div>
+`;
   } else {
-    const multi=SV_MULTI.has(s.key);
-    body=`${multi?`<p class="sv-multi">Puedes marcar ${s.key==="q11"?"varios":"varias"}.</p>`:""}<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${multi?"chk ":""}${svHas(s.key,t)?"on":""}" data-sv="${s.key}" data-v="${esc(t)}" aria-pressed="${svHas(s.key,t)}">${esc(t)}</button>`).join("")}</div>`;
+    body=`<div class="sv-opts">${s.opts.map(t=>chip(s.key,t)).join("")}</div>`;
+    hint=SV_MULTI.has(s.key)?`Puedes marcar ${s.key==="q11"?"varios":"varias"}.`:"";
   }
-  const last=SV_RUN.step===n-1, ok=svValid(SV_RUN.step);
+  const last=st===n-1, ok=svValid(st), rv=["q2","q11","q12"].includes(s.key);
   ov.innerHTML=`<div class="sv-box">
-    <div class="sv-top"><span class="sv-tag">📝 Encuesta · ${esc(jLabel(m))} · ${esc(nm(m.a))} – ${esc(nm(m.b))}</span>${total>1?`<span class="sv-tag">${left}/${total}</span>`:""}</div>
-    <div class="sv-bar"><i style="width:${pct}%"></i></div>
-    <div class="sv-step">Paso ${SV_RUN.step+1} de ${n}</div>
-    <h3 class="sv-q">${esc(s.title)}</h3>
-    ${s.golpes||s.comment?"":`<p class="sv-sub">${["q2","q11","q12"].includes(s.key)?`Tu rival: ${esc(nm(rival))}`:""}</p>`}
-    <div class="sv-body">${body}</div>
-    <div class="sv-nav">
-      ${SV_RUN.step>0?`<button class="btn ghost" data-sv-nav="back">← Atrás</button>`:"<span></span>"}
-      ${last?`<button class="btn ball" data-sv-nav="send" ${ok?"":"disabled"}>Enviar encuesta</button>`
-        :`<button class="btn ball" data-sv-nav="next" ${ok?"":"disabled"}>Siguiente →</button>`}
-    </div>
-    <p class="sv-note">Tus respuestas alimentan el «Análisis de rival» en cifras agregadas. Tu comentario nunca se muestra a nadie.</p>
+    <header class="sv-head">
+      <div class="sv-hrow"><span class="sv-brand"><i></i>Encuesta postpartido${total>1?` · ${left} de ${total}`:""}</span><span class="sv-num"><b>${st+1}</b>/${n}</span></div>
+      <div class="sv-seg">${SV_STEPS.map((_,i)=>`<i class="${i<st?"done":i===st?"cur":""}"></i>`).join("")}</div>
+    </header>
+    ${st===0||rv?svHead():""}
+    <main class="sv-main ${dir==="b"?"in-b":dir==="f"?"in-f":""}">
+      <div class="sv-eye ${rv?"rv":""}">${esc(SV_EYE[s.key]||"")}${rv?` · ${esc(nm(rival))}`:""}</div>
+      <h3 class="sv-q">${esc(s.golpes?"¿Qué golpes te funcionaron?":s.title)}</h3>
+      ${hint?`<p class="sv-hint">${esc(hint)}</p>`:""}
+      <div class="sv-body">${body}</div>
+      ${st===0?`<p class="sv-note">30 segundos. Tus respuestas alimentan tu evolución y los informes de rival, siempre en cifras agregadas.</p>`:""}
+    </main>
+    <footer class="sv-nav">
+      ${st>0?`<button class="sv-back" data-sv-nav="back" aria-label="Atrás">←</button>`:""}
+      ${last?`<button class="sv-go" data-sv-nav="send" ${ok?"":"disabled"}>Enviar encuesta</button>`
+        :`<button class="sv-go" data-sv-nav="next" ${ok?"":"disabled"}>${ok?"Siguiente":SV_SCALE.has(s.key)?"Elige una opción":"Marca al menos una"}</button>`}
+    </footer>
+  </div>`;
+  const mn=ov.querySelector(".sv-main"); if(mn) mn.scrollTop=0; ov.scrollTop=0;
+}
+function svDone(more){
+  SV_RUN.ov.innerHTML=`<div class="sv-box sv-done">
+    <div class="sv-ok"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="c"/><path d="M38 62 L54 77 L84 45" class="k"/></svg></div>
+    <h3>Encuesta enviada</h3>
+    <p>${more?`Te queda ${more===1?"otra":more} por responder. Va rápido.`:"Tu evolución y los informes de rival se actualizan con lo que acabas de contar."}</p>
+    <button class="sv-go" data-sv-nav="${more?"nextsv":"close"}">${more?"Siguiente encuesta":"Volver a la app"}</button>
   </div>`;
 }
 document.addEventListener("click",async e=>{
@@ -703,11 +735,17 @@ document.addEventListener("click",async e=>{
     if(o.disabled) return;
     if(SV_MULTI.has(k)){ const cur=[].concat(SV_RUN.ans[k]||[]); const i=cur.indexOf(v); i>=0?cur.splice(i,1):cur.push(v); SV_RUN.ans[k]=cur; }
     else SV_RUN.ans[k]=v;
-    svRender(); return;
+    const cur=SV_STEPS[SV_RUN.step]; svRender();
+    if(SV_SCALE.has(k)&&cur.key===k&&SV_RUN.step<SV_STEPS.length-1){ const at=SV_RUN.step, idx=SV_RUN.idx; clearTimeout(SV_RUN.tm);
+      SV_RUN.tm=setTimeout(()=>{ if(SV_RUN&&SV_RUN.step===at&&SV_RUN.idx===idx){ SV_RUN.step++; svRender("f"); } },320); }
+    return;
   }
   if(!nav) return;
-  if(nav.dataset.svNav==="back"){ SV_RUN.step--; svRender(); return; }
-  if(nav.dataset.svNav==="next"){ SV_RUN.step++; svRender(); return; }
+  clearTimeout(SV_RUN.tm);
+  if(nav.dataset.svNav==="back"){ SV_RUN.step--; svRender("b"); return; }
+  if(nav.dataset.svNav==="next"){ SV_RUN.step++; svRender("f"); return; }
+  if(nav.dataset.svNav==="nextsv"){ svRender("f"); return; }
+  if(nav.dataset.svNav==="close"){ SV_RUN.ov.remove(); SV_RUN=null; document.body.classList.remove("locked"); render(); return; }
   if(nav.dataset.svNav==="send"){ nav.disabled=true; nav.textContent="Enviando…"; await svSubmit(); }
 });
 document.addEventListener("input",e=>{
@@ -736,8 +774,7 @@ async function svSubmit(){
     return;
   }
   SV_RUN.idx++; SV_RUN.step=0; SV_RUN.ans={};
-  if(SV_RUN.idx<SV_RUN.list.length){ svRender(); toast("¡Enviada! Queda otra encuesta"); return; }
-  SV_RUN.ov.remove(); SV_RUN=null; document.body.classList.remove("locked"); render(); toast("¡Gracias! Encuestas completadas");
+  svDone(SV_RUN.list.length-SV_RUN.idx);
 }
 /* Al abrir la app: solo las pendientes (no interrumpe mientras se juega) */
 async function surveyCheck(){
