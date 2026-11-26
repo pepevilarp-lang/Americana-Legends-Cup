@@ -1110,3 +1110,37 @@ a.btn{display:inline-block;text-decoration:none;text-align:center}
 .sv-o.chk::before{content:"";position:absolute;left:14px;top:50%;width:18px;height:18px;margin-top:-9px;border:2px solid rgba(255,255,255,.6);border-radius:5px}
 .sv-o.chk.on::before{background:var(--ball);border-color:var(--ball)}
 .sv-o.chk.on::after{content:"";position:absolute;left:20px;top:50%;width:5px;height:10px;margin-top:-7px;border:solid #061433;border-width:0 3px 3px 0;transform:rotate(45deg)}
+
+/* ===== Crónica del partido ===== */
+.cr{margin:16px 0 6px;padding:16px 16px 14px;background:#fff;border:1px solid var(--rule);border-left:5px solid var(--ink);box-shadow:0 2px 0 var(--rule)}
+.cr-k{font:800 12px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--court);margin-bottom:8px}
+.cr-t{font:900 clamp(24px,6.6vw,32px)/1 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:0 0 10px;color:var(--ink)}
+.cr-p{margin:0 0 8px;font-size:15.5px;line-height:1.5}
+.cr-kick{margin:0 0 12px;font-style:italic;color:var(--muted)}
+.cr-share{width:100%}
+.cr-feed{display:grid;gap:8px}
+.cr-item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid var(--rule);padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+.cr-item:hover{border-color:var(--court)}
+.cr-faces{display:flex;flex:none}.cr-faces>*+*{margin-left:-8px}
+.cr-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cr-txt b{font:800 18px/1.1 var(--display);text-transform:uppercase}
+.cr-txt small{color:var(--muted);font-size:13px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ===== Tu evolución ===== */
+.ev-k{font:800 12px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--court)}
+.ev-t{font:900 34px/1 var(--display);text-transform:uppercase;margin:6px 0 10px}
+.ev-sub{color:var(--muted);margin:0 0 12px}
+.ev-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.ev-c{background:var(--deep);color:#fff;padding:12px 10px;text-align:center}
+.ev-c b{display:block;font:900 30px/1 var(--display)}.ev-c small{font-size:12px;opacity:.8}
+.ev-c.up b{color:var(--ball)}.ev-c.down b{color:#FF8A84}
+.ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ev-card{background:#fff;border:1px solid var(--rule);padding:12px}
+.ev-card small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.ev-card b{display:block;font:900 24px/1.1 var(--display);text-transform:uppercase;margin:4px 0}
+.ev-card b i{font-style:normal;font-size:.7em;color:var(--court)}
+.ev-card span{font-size:13px;color:var(--muted)}
+.ev-card.good{border-left:4px solid var(--win)}.ev-card.bad{border-left:4px solid var(--loss)}
+.ev-line{font-size:16px;font-weight:600;margin:14px 0 8px}
+.ev-goal{background:var(--ball);color:var(--ink);font-weight:700;padding:12px 14px}
+.ev-empty{background:#fff;border:1px dashed var(--court);padding:14px}.ev-empty p{margin:6px 0 0;color:var(--muted)}

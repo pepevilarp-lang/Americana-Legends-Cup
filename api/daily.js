@@ -11,6 +11,7 @@ const webpush = require("web-push");
 const { JORNADAS, NAMES, FIXTURE, RECAP_FROM } = require("./_liga");
 const AC = require("../agenda-core.js");
 const WX = require("./_wx.js"), WX_DESC = WX.DESC;
+const EVO = require("../evo-core.js");
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "americana-legends-cup";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
@@ -80,6 +81,10 @@ function buildPlan(saved, today, ag = {}) {
   // 2b) los lunes, partidos aplazados sin fecha
   if (AC.dow(today) === 1) noDate.filter(m => { const f = FIXTURE.find(x => x.id === m.id); return f && JORNADAS[f.j - 1][1] < today; })
     .forEach(m => [m.a, m.b].forEach(pid => add(pid, nudge(m, pid, "⚠️ Tenéis un partido aplazado", `${nm(m.a)}–${nm(m.b)} (J${m.j}) sigue sin jugarse.`))));
+  // 2c) Día 1 de cada mes: tu evolución, en privado (solo a ti, con tus encuestas)
+  if (today.slice(8) === "01" && ag.evo) Object.keys(NAMES).forEach(pid => { const ln = ag.evo[pid];
+    add(pid, ln ? { title: "📈 Tu mes en la Legends", body: `${ln} Toca para ver tu evolución.`, tag: `evo-${today}`, url: "./#evolucion" }
+               : { title: "📈 ¿Cómo evolucionas?", body: "Contesta la encuesta de tu próximo partido (30 s) y la app te dirá qué golpe mejora y cuál flojea.", tag: `evo-${today}`, url: "./#evolucion", quiet: true }); });
   // 3) resto: resumen del día, sin sonido
   const todays = all.filter(m => open(m) && m.date === today).sort((x, y) => (x.time || "99").localeCompare(y.time || "99"));
   if (todays.length) {
@@ -140,7 +145,14 @@ module.exports = async (req, res) => {
       const parts = id.split("-"); const a = str(f, "a") || parts[1], b = str(f, "b") || parts.slice(2).join("-");
       saved[id] = { status: str(f, "status"), date: str(f, "date"), time: str(f, "time"), court: str(f, "court"), a, b }; });
     const today = (req.query && req.query.date) || ymdMadrid();
-    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs), scout: toObj(sDocs), wxAt: (d, t) => WX.condAt(fc, d, t) });
+    // Día 1 de mes: resumen de evolución de cada uno a partir de sus encuestas
+    let evo = null;
+    if (today.slice(8) === "01") {
+      const svs = await list("surveys", tok).catch(() => []), by = {};
+      svs.forEach(d => { const v = fsVal({ mapValue: { fields: d.fields || {} } }); if (v && v.status === "completed" && v.playerId && v.answers) (by[v.playerId] = by[v.playerId] || []).push(v); });
+      evo = Object.fromEntries(Object.keys(NAMES).map(pid => [pid, EVO.line(EVO.summarize(by[pid] || []))]));
+    }
+    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs), scout: toObj(sDocs), wxAt: (d, t) => WX.condAt(fc, d, t), evo });
     if (req.query && req.query.dry) return res.status(200).json({ today, plan });
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:liga@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     let sent = 0, failed = 0;
