@@ -756,11 +756,12 @@ function vHoy(){
   let h=lineup()+(typeof xAlerts==="function"?xAlerts():"");
   if(live.length) h+=`<h2>En directo</h2><div class="grid2">${live.map(m=>`<div>${poster(m,{wide:live.length===1})}<div style="margin-top:8px">${scoreboard(m)}</div></div>`).join("")}</div>`;
   if(star) h+=`<h2>${live.length?"Próximo gran partido":"El partido de la jornada"}</h2>${poster(star,{wide:true})}`;
+  if(!live.length&&window.Cronica) h+=Cronica.feedHTML();
   h+=`<h2>Jornada ${J}</h2><p class="sub">Toca un partido para ver la previa, pronosticar o llevar el marcador.</p><div class="mlist">${jm.map(matchRow).join("")}</div>`;
   h+=`<div class="grid2" style="margin-top:28px">
     <div><h2 style="margin-top:0">Clasificación</h2>${miniTable(standings().slice(0,5))}<div class="btnrow"><button class="btn ghost" data-tab="clasificacion">Ver tabla completa</button></div></div>
     <div><h2 style="margin-top:0">MVP</h2>${M.jornada?award(M.jornada.id,`MVP de la jornada ${M.jornada.j}`,`+${M.jornada.d.toFixed(0)} de rendimiento`,"gold"):`<div class="empty">El MVP aparece en cuanto haya resultados.</div>`}
-    ${M.season?`<div style="height:10px"></div>`+award(M.season.id,"MVP de la temporada",`Índice ${M.season.r.toFixed(0)}`):""}</div></div>`;
+    ${M.season?`<div style="height:10px"></div>`+award(M.season.id,"MVP de la temporada",`Rating ${M.season.r.toFixed(0)}`):""}</div></div>`;
   return h;
 }
 function miniTable(rows){
@@ -1059,6 +1060,7 @@ function openMatch(id){
   const prev=FIXTURE.filter(f=>f.id!==id&&((f.a===m.a&&f.b===m.b)||(f.a===m.b&&f.b===m.a))).map(f=>getMatch(f.id)).filter(x=>result(x));
   let h=poster(m,{still:true})+`<div class="sheet-body"><button class="btn ball vx-open" data-versus="${id}">▶ Ver presentación del cara a cara</button>`;
   if(m.status==="live"||r) h+=scoreboard(m);
+  if(r&&window.Cronica) h+=Cronica.html(id);
   h+=`<h3 style="margin-top:14px">Cara a cara</h3>${cmpTable(m.a,m.b)}`;
   if(prev.length) h+=`<p class="mini">Ya se enfrentaron: ${prev.map(x=>`${nm(x.a)} ${scoreText(x)} ${nm(x.b)}`).join("; ")}</p>`;
   if(!r&&m.status!=="live") h+=`<h3 style="margin-top:16px">Tu pronóstico</h3>${S.me?predCard(m):`<p class="mini">Elige quién eres en la pestaña Pronósticos para votar.</p>`}`;

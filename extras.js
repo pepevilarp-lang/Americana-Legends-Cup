@@ -88,7 +88,10 @@ function pushPlan(ev,m,prev,next,before){
     case "result": case "final": case "wo": {
       const r=result(next), W=r.w==="a"?m.a:m.b, L=r.w==="a"?m.b:m.a;
       let mv=""; if(before&&FX[m.id]){ const after=posMap(); mv=[moveText(W,before,after),moveText(L,before,after)].filter(Boolean).join(" · "); }
-      return [{payload:{title:`🏁 Final · ${j}`,body:(r.wo?`WO: gana ${nm(W)} a ${nm(L)}`:`${nm(W)} gana a ${nm(L)} ${scoreText(next)}`)+(mv?`. ${mv}`:""),tag:"res-"+m.id,url:"./#clasificacion"}}];
+      const base=(r.wo?`WO: gana ${nm(W)} a ${nm(L)}`:`${nm(W)} gana a ${nm(L)} ${scoreText(next)}`)+(mv?`. ${mv}`:"");
+      let cr=null; try{ cr=window.Cronica&&Cronica.build(m.id); }catch(_){}
+      if(cr) return [{payload:{title:`📰 ${cr.title}`,body:`${base}. ${cr.kicker} Toca para leer la crónica.`,tag:"res-"+m.id,url:`./#cronica-${m.id}`}}];
+      return [{payload:{title:`🏁 Final · ${j}`,body:base,tag:"res-"+m.id,url:"./#clasificacion"}}];
     }
     case "correct":
       return [{payload:{title:"✏️ Resultado corregido",body:`${A}–${B} (${j}): ${ev.old} → ${scoreText(next)}. Lo cambió ${by}.`,tag:"res-"+m.id,url:"./#registro"},only:both}];
@@ -571,7 +574,7 @@ function playerProfileHtml(id){
   const sel=`<div class="pf-cmp"><label for="pcmp">Comparar con</label><select id="pcmp"><option value="">— nadie —</option>${PLAYERS.filter(x=>x.id!==id).map(x=>`<option value="${x.id}" ${cmpId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>`;
   const cmpTbl=cmpId?`<table class="cmp pf-cmpt"><tr><td style="color:${p.color}">${esc(p.first)}</td><td class="k">Radar</td><td style="color:${col(cmpId)}">${esc(P[cmpId].first)}</td></tr>${PF_AXES.map(([t,k])=>`<tr><td class="${Mi[k]>=Mc[k]?"better":""}">${Math.round(Mi[k])}</td><td class="k">${t}</td><td class="${Mc[k]>Mi[k]?"better":""}">${Math.round(Mc[k])}</td></tr>`).join("")}</table>`:"";
   const bio=(p.nick||p.bio)?`<div class="bio" style="--c:${p.color}">${p.nick?`<b>“${esc(p.nick)}”</b>`:""}${p.style?`<span>${esc(p.style)}</span>`:""}${p.bio?`<p>${esc(p.bio)}</p>`:""}</div>`:"";
-  const scoutBtn=`<button class="btn ball pf-scout" data-x="scout" data-id="${id}">🔎 ${S.me===id?"Ver mi informe de scouting":"Analizar rival"}</button>`;
+  const scoutBtn=`<button class="btn ball pf-scout" data-x="scout" data-id="${id}">🔎 ${S.me===id?"Ver mi informe de scouting":"Analizar rival"}</button>`+(S.me===id?`<button class="btn ghost pf-scout" data-x="evo">📈 Mi evolución</button>`:"");
   return bio+scoutBtn
     +`<h3 class="pf-h">Números <small>(puesto en la liga entre paréntesis)</small></h3><div class="pf-stats">${stats}</div>`
     +`<div class="pf-two"><div><h3 class="pf-h">Perfil</h3><div class="panel pf-radarbox">${pfRadar(Mi,Mc,p,cmpId)}<div class="pf-legend"><i style="background:${p.color}"></i>${esc(p.first)}${cmpId?` <i class="dash" style="border-color:${col(cmpId)}"></i>${esc(P[cmpId].first)}`:""}</div></div></div>`
