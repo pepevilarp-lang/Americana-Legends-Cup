@@ -544,7 +544,7 @@ function playerProfileHtml(id){
     stat(R.bag,"Roscos (6-0)",rk(r=>r.bag)),
     stat(R.streak>0?"+"+R.streak:R.streak<0?"−"+(-R.streak):"0","Racha (+ victorias / − derrotas)"),
     stat(R.best,"Mejor racha",rk(r=>r.best)),
-    stat(E.R[id].toFixed(0),"Índice MVP",rk(r=>E.R[r.id]))
+    stat(E.R[id].toFixed(0),"Rating",rk(r=>E.R[r.id]))
   ].join("");
   const myScore=m=>{ if(m.status==="wo") return "WO"; const me=m.a===id?"a":"b"; return (m.sets||[]).map(s=>me==="a"?`${s.a}-${s.b}`:`${s.b}-${s.a}`).join(" · "); };
   const lastM=R.res.slice(-10);
