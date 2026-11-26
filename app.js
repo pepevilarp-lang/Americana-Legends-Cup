@@ -947,7 +947,7 @@ function openVersus(id){
   const pct=x=>x.pj?Math.round(x.pg/x.pj*100):0;
   const rows=[
     ["Puntos",A.pts,B.pts,""],["% victorias",pct(A),pct(B),"%"],["Sets ganados",A.sf,B.sf,""],
-    ["Juegos ganados",A.jf,B.jf,""],["Índice MVP",Math.round(E.R[m.a]),Math.round(E.R[m.b]),"",1400],["Victorias entre ellos",h2.w,h2.l,""]];
+    ["Juegos ganados",A.jf,B.jf,""],["Rating",Math.round(E.R[m.a]),Math.round(E.R[m.b]),"",1400],["Victorias entre ellos",h2.w,h2.l,""]];
   const kick=m.playoff?PO_LABEL[m.id]:`Jornada ${m.j} · Partido ${FIXTURE.filter(f=>f.j===m.j).findIndex(f=>f.id===m.id)+1}`;
   const when=m.date?`${fmtDay(m.date)}${m.time?" · "+m.time:""}${m.court?" · "+m.court:""}`:"Fecha por fijar";
   const tick=(`${pA.name} <em>vs</em> ${pB.name} · Americana Legends Cup · `).repeat(5);
@@ -1078,12 +1078,12 @@ function openPlayer(id){
   const R=standings().byId[id], E=elo(), p=P[id], pct=R.pj?Math.round(R.pg/R.pj*100):0;
   const stats=[[R.pos+"º","Posición"],[R.pts,"Puntos"],[R.pj,"Partidos"],[pct+"%","Victorias"],[`${R.sf}-${R.sc}`,"Sets"],[`${R.jf}-${R.jc}`,"Juegos"],
     [`${R.tbW}-${R.tbL}`,"Tie-breaks"],[`${R.stW}-${R.stL}`,"Super tie-breaks"],[R.rem,"Remontadas"],[R.bag,"Roscos (6-0)"],
-    [R.streak>0?R.streak+"V":R.streak<0?(-R.streak)+"D":"–","Racha actual"],[R.best,"Mejor racha"],[E.R[id].toFixed(0),"Índice MVP"]];
+    [R.streak>0?R.streak+"V":R.streak<0?(-R.streak)+"D":"–","Racha actual"],[R.best,"Mejor racha"],[E.R[id].toFixed(0),"Rating"]];
   const hs=E.hist[id]; let chart="";
   if(hs.length>1){
     const W=600,H=150,pd=26,mn=Math.min(...hs,1450),mx=Math.max(...hs,1550);
     const pts=hs.map((r,i)=>[pd+i*(W-2*pd)/(hs.length-1),H-pd-(r-mn)/(mx-mn)*(H-2*pd)]), y0=H-pd-(1500-mn)/(mx-mn)*(H-2*pd);
-    chart=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución del índice"><text x="${pd}" y="14" font-size="12" fill="#5B6A85">Evolución del índice MVP (1500 = inicio)</text><line x1="${pd}" x2="${W-pd}" y1="${y0}" y2="${y0}" stroke="#D3DDEC" stroke-dasharray="4 4"/><polyline fill="none" stroke="${p.color}" stroke-width="4" stroke-linejoin="round" points="${pts.map(x=>x.join(",")).join(" ")}"/>${pts.map(x=>`<circle cx="${x[0]}" cy="${x[1]}" r="4" fill="#0A1530"/>`).join("")}</svg>`;
+    chart=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolución del rating"><text x="${pd}" y="14" font-size="12" fill="#5B6A85">Evolución del rating (1500 = inicio)</text><line x1="${pd}" x2="${W-pd}" y1="${y0}" y2="${y0}" stroke="#D3DDEC" stroke-dasharray="4 4"/><polyline fill="none" stroke="${p.color}" stroke-width="4" stroke-linejoin="round" points="${pts.map(x=>x.join(",")).join(" ")}"/>${pts.map(x=>`<circle cx="${x[0]}" cy="${x[1]}" r="4" fill="#0A1530"/>`).join("")}</svg>`;
   }
   const rivals=PLAYERS.filter(x=>x.id!==id).map(x=>{const h=R.h2h[x.id]||{w:0,l:0};return `<div class="tline"><div class="pl">${av(x.id,"sm")}<span>${x.first}</span></div><span class="num" style="font-size:22px;font-weight:900">${h.w}–${h.l}</span></div>`;}).join("");
   const next=FIXTURE.filter(f=>f.a===id||f.b===id).map(f=>getMatch(f.id)).find(m=>!result(m));
