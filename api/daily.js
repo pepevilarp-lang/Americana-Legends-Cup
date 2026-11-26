@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const webpush = require("web-push");
 const { JORNADAS, NAMES, FIXTURE, RECAP_FROM } = require("./_liga");
 const AC = require("../agenda-core.js");
+const WX = require("./_wx.js"), WX_DESC = WX.DESC;
 const PROJECT = process.env.FIREBASE_PROJECT_ID || "americana-legends-cup";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
@@ -43,10 +44,17 @@ function buildPlan(saved, today, ag = {}) {
     if (s) return { title, body: `Con ${nm(rival(m, pid))}: os va bien a los dos el ${AC.label(s)}. Toca para cerrarlo.`, tag: `daily-${today}`, url: `./#agenda-${m.id}` };
     if (!AC.filled(avail[pid])) return { title, body: `${fallback} Rellena tu agenda (3 preguntas, 30 s) y la app os busca hueco.`, tag: `daily-${today}`, url: "./#agenda" };
     return { title, body: `${fallback} Mirad la agenda: ahí veis qué días os encajan.`, tag: `daily-${today}`, url: `./#agenda-${m.id}` }; };
+  // Pista del informe del rival: primero el tiempo previsto cruzado con su historial; si no, su golpe más flojo
+  const scout = ag.scout || {}, wxAt = ag.wxAt || (() => null);
+  const tip = (m, riv) => { const s = scout[riv] || {}, n = nm(riv), cond = wxAt(m.date, m.time), c = cond && s.c5 && s.c5[cond];
+    if (cond && c && (c.w || 0) + (c.l || 0) >= 1) return `Previsión: ${WX_DESC[cond] || cond.toLowerCase()}. Con este tiempo, ${n} va ${c.w || 0}-${c.l || 0}.`;
+    const weak = Object.entries(s.q3b || {}).sort((a, b) => b[1] - a[1])[0];
+    if (weak && weak[1] >= 1) return `${cond ? `Previsión: ${WX_DESC[cond] || cond.toLowerCase()}. ` : ""}Su golpe con menos confianza: ${weak[0].toLowerCase()}.`;
+    return cond ? `Previsión: ${WX_DESC[cond] || cond.toLowerCase()}.` : ""; };
   // 1) hoy y mañana
   for (const [day, word] of [[today, "Hoy"], [tomorrow, "Mañana"]]) {
-    all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid =>
-      add(pid, { title: `🎾 ${word} juegas`, body: `Contra ${nm(rival(m, pid))}${detail(m)}. ¡Suerte!`, tag: `daily-${today}` })));
+    all.filter(m => open(m) && m.date === day).forEach(m => [m.a, m.b].forEach(pid => { const riv = rival(m, pid), t = tip(m, riv);
+      add(pid, { title: `🎾 ${word} juegas`, body: `Contra ${nm(riv)}${detail(m)}. ${t ? t + " Toca para ver su informe." : "¡Suerte!"}`, tag: `daily-${today}`, url: t ? `./#scout-${riv}` : undefined }); }));
   }
   // 1b) Día del resumen de la primera vuelta: aviso especial (quien juega hoy ya tiene su «Hoy juegas»)
   if (today === RECAP_FROM) {
@@ -125,21 +133,21 @@ module.exports = async (req, res) => {
   try {
     const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     const tok = await accessToken(sa);
-    const [mDocs, pDocs, aDocs, plDocs] = await Promise.all([list("matches", tok), list("push", tok), list("avail", tok).catch(() => []), list("plans", tok).catch(() => [])]);
+    const [mDocs, pDocs, aDocs, plDocs, sDocs, fc] = await Promise.all([list("matches", tok), list("push", tok), list("avail", tok).catch(() => []), list("plans", tok).catch(() => []), list("survey_stats", tok).catch(() => []), WX.forecast()]);
     const toObj = docs => Object.fromEntries(docs.map(d => [d.name.split("/").pop(), fsVal({ mapValue: { fields: d.fields || {} } })]));
     const saved = {};
     mDocs.forEach(d => { const id = d.name.split("/").pop(), f = d.fields || {};
       const parts = id.split("-"); const a = str(f, "a") || parts[1], b = str(f, "b") || parts.slice(2).join("-");
       saved[id] = { status: str(f, "status"), date: str(f, "date"), time: str(f, "time"), court: str(f, "court"), a, b }; });
     const today = (req.query && req.query.date) || ymdMadrid();
-    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs) });
+    const plan = buildPlan(saved, today, { avail: toObj(aDocs), plans: toObj(plDocs), scout: toObj(sDocs), wxAt: (d, t) => WX.condAt(fc, d, t) });
     if (req.query && req.query.dry) return res.status(200).json({ today, plan });
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:liga@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
     let sent = 0, failed = 0;
     await Promise.all(pDocs.map(async d => {
       const f = d.fields || {}, who = str(f, "who"), p = plan[who]; if (!p) return;
       let sub; try { sub = JSON.parse(str(f, "sub")); } catch (_) { return; }
-      try { await webpush.sendNotification(sub, JSON.stringify({ url: "./#hoy", ...p }), { TTL: 6 * 3600, urgency: p.quiet ? "low" : "normal" }); sent++; }
+      try { await webpush.sendNotification(sub, JSON.stringify({ ...p, url: p.url || "./#hoy" }), { TTL: 6 * 3600, urgency: p.quiet ? "low" : "normal" }); sent++; }
       catch (e) { failed++; }
     }));
     res.status(200).json({ today, people: Object.keys(plan).length, sent, failed });
