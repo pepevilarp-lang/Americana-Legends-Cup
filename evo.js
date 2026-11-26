@@ -14,12 +14,18 @@
   const lbl=(v,scale)=>v==null?"–":scale[Math.max(0,Math.min(4,Math.round(v)-1))];
   const PERF=["Muy malo","Malo","Normal","Bueno","Muy bueno"], FIS=["Muy mal","Mal","Normal","Bien","Muy bien"];
 
-  function html(me,list){
+  function rvCard(st){ const n=(st&&st.rv_n)||0; if(!n) return "";
+    const top=o=>Object.entries(o||{}).sort((a,b)=>b[1]-a[1])[0];
+    const g=top(st.rv_golpes), c=Object.entries(st.rv_clave||{}).filter(([k])=>k!=="Nada en especial").sort((a,b)=>b[1]-a[1])[0];
+    return `<div class="ev-rv"><small>👀 Cómo te ven tus rivales · ${n} encuesta${n===1?"":"s"}</small>
+      <p>${g?`Lo que más temen: <b>${esc(g[0].toLowerCase())}</b>.`:""} ${c?`Tu clave, según ellos: <b>${esc(c[0].toLowerCase())}</b>.`:""}</p></div>`; }
+  function html(me,list,st){
     const M=monthStats(me), sum=EvoCore.summarize(list);
     let h=`<div class="sheet-body ev"><div class="ev-k">📈 Solo lo ves tú</div><h2 class="ev-t">Tu evolución</h2>`;
     if(M) h+=`<div class="ev-row"><div class="ev-c"><b>${M.rating}</b><small>Rating actual</small></div>
       <div class="ev-c ${M.d>0?"up":M.d<0?"down":""}"><b>${M.d>0?"+":""}${M.d}</b><small>Rating en 30 días</small></div>
       <div class="ev-c"><b>${M.w}–${M.l}</b><small>Últimos 30 días</small></div></div>`;
+    h+=rvCard(st);
     if(!sum.ready){
       h+=`<div class="ev-empty"><b>${sum.n?`Llevas ${sum.n} encuesta. Con una más ya vemos tu evolución.`:"Aún no has contestado encuestas."}</b>
         <p>Después de cada partido te llega una encuesta de 30 segundos. Contéstala y aquí verás qué golpe mejora, cuál flojea y cómo llegas físicamente.</p></div></div>`;
@@ -37,9 +43,10 @@
     const me=S.me||Store.myPlayer; if(!me){ toast("Elige primero quién eres"); return; }
     S.modal=open;
     showModal(`<div class="sheet-body ev"><div class="ev-k">📈 Solo lo ves tú</div><h2 class="ev-t">Tu evolución</h2><p class="ev-sub">Cargando tus encuestas…</p></div>`);
-    let list=[];
-    if(Store.db){ try{ const q=await Store.db.collection("surveys").where("playerId","==",me).where("status","==","completed").get(); q.forEach(d=>list.push(d.data())); }catch(e){ console.error(e); } }
-    const box=document.querySelector(".sheet-body.ev"); if(box) box.outerHTML=html(me,list);
+    let list=[], st=null;
+    if(Store.db){ try{ const [q,sd]=await Promise.all([Store.db.collection("surveys").where("playerId","==",me).where("status","==","completed").get(), Store.db.collection("survey_stats").doc(me).get().catch(()=>null)]);
+      q.forEach(d=>list.push(d.data())); st=sd&&sd.exists?sd.data():null; }catch(e){ console.error(e); } }
+    const box=document.querySelector(".sheet-body.ev"); if(box) box.outerHTML=html(me,list,st);
     try{ window.dxTrack&&dxTrack("evolucion_abierta",{encuestas:list.length}); }catch(_){}
   }
   document.addEventListener("click",ev=>{ if(ev.target.closest('[data-x="evo"]')) open(); });

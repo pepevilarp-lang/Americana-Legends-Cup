@@ -625,11 +625,14 @@ const SV={
   fisico:["Muy mal","Mal","Normal","Bien","Muy bien"],
   deport:["Nada","Poco","Normal","Bastante","Total"],
   refl:["Nada","Poco","Más o menos","Bastante","Totalmente"],
-  factor:["Saque","Consistencia","Físico","Mentalidad","Errores no forzados","Otro"]
+  factor:["Saque","Consistencia","Físico","Mentalidad","Errores no forzados","Otro"],
+  clave:["Mentalidad","Constancia","Solidez","Físico","Agresividad","Saque","Táctica","Nada en especial"]
 };
 const SV_STEPS=[
   {key:"q1",title:"¿Cómo valorarías tu rendimiento?",opts:SV.scale5perf},
   {key:"q2",title:"¿Cómo valorarías el rendimiento de tu rival?",opts:SV.scale5perf},
+  {key:"q11",title:"¿Qué golpes de tu rival te hicieron más daño?",opts:SV.golpes.map(g=>g[1])},
+  {key:"q12",title:"¿Cuál fue la clave de tu rival?",opts:SV.clave},
   {key:"q3",title:"Golpes del partido",golpes:true},
   {key:"q4",title:"¿Cómo estaba la pista?",opts:SV.pista},
   {key:"q5",title:"¿Cómo fueron las condiciones meteorológicas?",opts:SV.clima},
@@ -652,7 +655,7 @@ function svCurrent(){ return SV_RUN.list[SV_RUN.idx]; }
 function svMatch(){ const d=svCurrent(); return getMatch(d.matchId); }
 function svSide(){ const d=svCurrent(); const m=svMatch(); const rival=d.playerId===m.a?m.b:m.a; return {m,rival}; }
 /* Preguntas en las que se pueden marcar varias opciones (las valoraciones de 1 a 5 siguen siendo de una) */
-const SV_MULTI=new Set(["q3a","q3b","q4","q5","q9"]);
+const SV_MULTI=new Set(["q3a","q3b","q4","q5","q9","q11","q12"]);
 const svHas=(k,t)=>{ const v=SV_RUN.ans[k]; return Array.isArray(v)?v.includes(t):v===t; };
 const svLen=k=>{ const v=SV_RUN.ans[k]; return Array.isArray(v)?v.length:(v?1:0); };
 function svValid(step){
@@ -674,7 +677,7 @@ function svRender(){
     body=`<textarea id="sv-com" maxlength="300" placeholder="Opcional. Lo que quieras decir del partido (máx. 300 caracteres)">${esc(SV_RUN.ans.q10||"")}</textarea><div class="sv-count"><span id="sv-cc">${(SV_RUN.ans.q10||"").length}</span>/300</div>`;
   } else {
     const multi=SV_MULTI.has(s.key);
-    body=`${multi?`<p class="sv-multi">Puedes marcar varias.</p>`:""}<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${multi?"chk ":""}${svHas(s.key,t)?"on":""}" data-sv="${s.key}" data-v="${esc(t)}" aria-pressed="${svHas(s.key,t)}">${esc(t)}</button>`).join("")}</div>`;
+    body=`${multi?`<p class="sv-multi">Puedes marcar ${s.key==="q11"?"varios":"varias"}.</p>`:""}<div class="sv-opts sv-col">${s.opts.map(t=>`<button class="sv-o ${multi?"chk ":""}${svHas(s.key,t)?"on":""}" data-sv="${s.key}" data-v="${esc(t)}" aria-pressed="${svHas(s.key,t)}">${esc(t)}</button>`).join("")}</div>`;
   }
   const last=SV_RUN.step===n-1, ok=svValid(SV_RUN.step);
   ov.innerHTML=`<div class="sv-box">
@@ -682,7 +685,7 @@ function svRender(){
     <div class="sv-bar"><i style="width:${pct}%"></i></div>
     <div class="sv-step">Paso ${SV_RUN.step+1} de ${n}</div>
     <h3 class="sv-q">${esc(s.title)}</h3>
-    ${s.golpes||s.comment?"":`<p class="sv-sub">${s.key==="q2"?`Tu rival: ${esc(nm(rival))}`:""}</p>`}
+    ${s.golpes||s.comment?"":`<p class="sv-sub">${["q2","q11","q12"].includes(s.key)?`Tu rival: ${esc(nm(rival))}`:""}</p>`}
     <div class="sv-body">${body}</div>
     <div class="sv-nav">
       ${SV_RUN.step>0?`<button class="btn ghost" data-sv-nav="back">← Atrás</button>`:"<span></span>"}
@@ -712,7 +715,7 @@ document.addEventListener("input",e=>{
 });
 async function svSubmit(){
   const d=svCurrent(), a=SV_RUN.ans, answers={
-    q1:a.q1,q2:a.q2,q3_confianza:a.q3a,q3_menos_confianza:a.q3b,q4:a.q4,q5:a.q5,q6:a.q6,q7:a.q7,q8:a.q8,q9:a.q9,comentario:(a.q10||"").slice(0,300)
+    q1:a.q1,q2:a.q2,q3_confianza:a.q3a,q3_menos_confianza:a.q3b,q4:a.q4,q5:a.q5,q6:a.q6,q7:a.q7,q8:a.q8,q9:a.q9,rival_golpes:a.q11||[],rival_clave:a.q12||[],comentario:(a.q10||"").slice(0,300)
   };
   try{
     const sref=Store.db.collection("surveys").doc(d.id), stref=Store.db.collection("survey_stats").doc(d.playerId);
@@ -993,6 +996,21 @@ function scDonut(map,n){
   return `<div class="sx-donut"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="36" class="bg"/>${segs}</svg>
     <ul>${e.map(([k,v],i)=>`<li><i style="background:${cols[i%6]}"></i>${esc(k)}<b>${Math.round(v/n*100)}%</b></li>`).join("")}</ul></div>`;
 }
+/* «Lo que dicen sus rivales»: golpes que más daño hacen y su clave, según las encuestas de sus rivales (agregado, nunca quién lo dijo) */
+function scRivalView(s,p,self_){
+  const n=(s&&s.rv_n)||0; if(!n) return "";
+  const top=o=>Object.entries(o||{}).sort((a,b)=>b[1]-a[1]);
+  const g=top(s.rv_golpes).slice(0,3), c=top(s.rv_clave).filter(([k])=>k!=="Nada en especial").slice(0,3);
+  const own=scTop(s.q3a), art=k=>({Derecha:"la",Volea:"la",Dejada:"la"}[k]||"el")+" "+k.toLowerCase();
+  let cmp="";
+  if(own&&g[0]&&own[0]!==g[0][0]) cmp=self_?`Tú crees que tu arma es ${art(own[0])}; tus rivales temen más ${art(g[0][0])}.`:`${esc(p.first)} cree que su arma es ${art(own[0])}; sus rivales temen más ${art(g[0][0])}.`;
+  else if(own&&g[0]) cmp=self_?`Tus rivales coinciden contigo: tu arma es ${art(own[0])}.`:`Sus rivales lo confirman: su arma es ${art(own[0])}.`;
+  return `<section class="sx-sec sx-rv" style="--d:.2s"><h3 class="sx-h">👀 ${self_?"Lo que dicen de ti tus rivales":"Lo que dicen sus rivales"}</h3>
+    <p class="sx-note">Según ${n} encuesta${n===1?"":"s"} de ${self_?"tus":"sus"} rivales. Nunca se ve quién dijo qué.</p>
+    ${g.length?`<div class="sx-k">Golpes que más daño hacen</div><div class="sx-rvbars">${g.map(([k,v])=>`<div><b>${esc(k)}</b><span><i style="--w:${Math.round(v/n*100)}%"></i></span><em>${Math.round(v/n*100)}%</em></div>`).join("")}</div>`:""}
+    ${c.length?`<div class="sx-k" style="margin-top:10px">Su clave</div><div class="sx-chips2">${c.map(([k,v])=>`<span>${esc(k)} <small>${v}</small></span>`).join("")}</div>`:""}
+    ${cmp?`<p class="sx-cmp">${cmp}</p>`:""}</section>`;
+}
 function scoutHtml(id,s,me){
   const p=P[id], hand=localStorage.getItem("am_hand_"+id)||"diestro", self_=S.me===id;
   const hero=extra=>`<div class="sx-hero" style="--c:${p.color}">
@@ -1002,7 +1020,7 @@ function scoutHtml(id,s,me){
     <div class="sx-ht"><div class="sx-stamp">EXPEDIENTE · ${self_?"PERSONAL":"CONFIDENCIAL"}</div>
       <div class="sx-kick">Informe de scouting</div><h2 class="sx-name">${esc(p.name)}</h2><div class="sx-nick">“${esc(p.nick||"")}”</div>${extra||""}</div></div>`;
   if(!s||(s.n||0)<SC_MIN) return hero()+`<div class="sx-locked"><div class="sx-lock">🔒</div><b>Aún no hay encuestas sumadas de ${esc(p.first)}</b>
-    <p>${Store.isAdmin?"Pulsa «🔄 Recalcular análisis de rival» en la pestaña Organizador para sumar las encuestas que ya ha respondido.":"En cuanto responda su primera encuesta, aquí aparecerá su informe. Las encuestas anteriores se suman cuando el organizador abre la app."}</p></div>`;
+    <p>${Store.isAdmin?"Pulsa «🔄 Recalcular análisis de rival» en la pestaña Organizador para sumar las encuestas que ya ha respondido.":"En cuanto responda su primera encuesta, aquí aparecerá su informe. Las encuestas anteriores se suman cuando el organizador abre la app."}</p></div>`+scRivalView(s,p,self_);
   const n=s.n, sa=scTop(s.q3a), sb=scTop(s.q3b), fis=scAvg(s.q6,SV.fisico), self=scAvg(s.q1,SV.scale5perf), fac=s.q9||{};
   const real=["Bastante","Totalmente"].reduce((t,k)=>t+((s.q8||{})[k]||0),0)/n;
   const cond=["c4","c5"].flatMap(k=>Object.entries(s[k]||{}).map(([v,r])=>({v,w:r.w,l:r.l,g:r.w+r.l,pct:r.w/Math.max(1,r.w+r.l)}))).filter(c=>c.g>=1);
@@ -1036,6 +1054,7 @@ function scoutHtml(id,s,me){
         return `<div class="sx-duel"><div class="sx-dt">${esc(d.txt)}</div><div class="sx-dbar"><i class="${d.e>=0?"r":"l"}" style="--w:${w.toFixed(0)}%"></i><span class="sx-center"></span></div><div class="sx-dv ${good?"good":bad?"bad":""}">${good?"Ventaja tuya":bad?"Ventaja suya":"Igualado"}</div></div>`; }).join("")}</div><p class="sx-note">Cruza tus encuestas con las suyas: tu confianza en un golpe frente a la suya en el que lo contrarresta.</p>`)
       :sec(4,"🔑 Qué decide sus partidos",scDonut(fac,n)))
    +`</div>`
+   +scRivalView(s,p,self_)
    +`<div class="sx-trio">
       <div class="sx-card" style="--d:.3s"><div class="sx-k">Físico</div>${gauge(fis,fisL(fis),"💪")}</div>
       <div class="sx-card" style="--d:.38s"><div class="sx-k">Cómo se ve</div>${gauge(self,selfL(self),"🪞")}</div>
@@ -1104,6 +1123,6 @@ const _listen3=Store.listen;
 Store.listen=function(){ const was=this.listening; _listen3.call(this); if(!was) setTimeout(scoutAutoSync,2500); };
 
 
-window.Features={statsAdd,scoutHtml,openScout,Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
+window.Features={statsAdd,scoutHtml,openScout,runSurvey,Push,Onb,alertsData,alertMsg,buildICS,googleCal,drawPoster,evoData,rivalryHtml,recordsHtml,diffEvent,logText,pushPlan,pushTest,daysLeftAt};
 schedule();
 })();
