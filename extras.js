@@ -1064,6 +1064,14 @@ document.addEventListener("click",ev=>{
   const a=ev.target.closest('[data-x="scout"]'); if(a){ openScout(a.dataset.id); return; }
   const h=ev.target.closest('[data-x="scouthand"]'); if(h){ const id=h.dataset.id, k="am_hand_"+id; localStorage.setItem(k,(localStorage.getItem(k)||"diestro")==="zurdo"?"diestro":"zurdo"); const b=document.getElementById("sc-body"); if(b&&SC_CACHE[id]){ b.innerHTML=scoutHtml(id,SC_CACHE[id].s,S.me&&SC_CACHE[S.me]?SC_CACHE[S.me].s:null); } }
 });
+/* Enlace del aviso «Hoy/Mañana juegas»: #scout-<jugador> abre su informe en cuanto la app está lista */
+(function(){
+  function route(){ const m=/^#scout-([a-z0-9_-]+)$/i.exec(location.hash||""); if(!m||!P[m[1]]) return;
+    const id=m[1], go=()=>{ if(!(Store.member&&Store.db&&!document.getElementById("gate"))) return false;
+      history.replaceState(null,"",location.pathname+location.search+"#hoy"); openScout(id); return true; };
+    if(!go()){ const iv=setInterval(()=>{ if(go()) clearInterval(iv); },600); setTimeout(()=>clearInterval(iv),20000); } }
+  window.addEventListener("hashchange",route); route();
+})();
 /* Organizador: rehace las cifras de todos con TODAS las encuestas respondidas (incluye las anteriores a esta función) */
 async function scoutRebuildData(snap){
   const by={}; snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="completed"&&x.answers)
